@@ -4685,42 +4685,50 @@ class CampTix_Plugin {
 							<th class="tix-column-identification"><?php _e( 'ID', 'camptix' ); ?></th>
 							<th class="tix-column-description"><?php _e( 'Description', 'camptix' ); ?></th>
 							<th class="tix-column-per-ticket"><?php _e( 'Per Ticket', 'camptix' ); ?></th>
-							<th class="tix-column-quantity"><?php _e( 'Quantity', 'camptix' ); ?></th>
+							<th class="tix-column-extra-price"><?php _e( 'Workshop Price', 'camptix' ); ?></th>
+							<!--  <th class="tix-column-quantity"><?php _e( 'Quantity', 'camptix' ); ?></th> -->
 							<th class="tix-column-price"><?php _e( 'Price', 'camptix' ); ?></th>
 						</tr>
 					</thead>
 					<tbody>
-						<?php foreach ( $this->tickets_selected as $ticket_id => $count ) : ?>
+						<?php $number_of_tickets = 0; ?>
+						<?php foreach ( $this->tickets_selected as $ticket_id => $count ) : // loops through each ticket type ?>
 							<?php
 								$ticket = $this->tickets[$ticket_id];
 								$price = ( $ticket->tix_coupon_applied ) ? $ticket->tix_discounted_price : $ticket->tix_price;
 								// Basheer found a price calculation !
 								$total += $price * $count;
 							?>
-							<tr>
-								<td class="tix-column-description">
-									<?php echo $ticket ?>
-								</td>
-								<td class="tix-column-description">
-									<strong><?php echo $ticket->post_title; ?></strong>
-									<?php if ( $ticket->tix_coupon_applied ) : ?>
-									<br /><small><?php echo $ticket->tix_discounted_text; ?></small>
+							<?php for ($x = 0; $x < $count; $x++) : //loops through each individual ticket of this specific type ?>
+								<tr>
+									<?php $number_of_tickets++; ?>
+									<td class="tix-column-identification">
+										<?php echo $number_of_tickets; ?>
+									</td>
+									<td class="tix-column-description">
+										<strong><?php echo $ticket->post_title; ?></strong>
+										<?php if ( $ticket->tix_coupon_applied ) : ?>
+										<br /><small><?php echo $ticket->tix_discounted_text; ?></small>
+										<?php endif; ?>
+									</td>
+									<td class="tix-column-per-ticket">
+									<?php if ( $price > 0 ) : ?>
+										<?php echo $this->append_currency( $price ); ?>
+									<?php else : ?>
+										Free
 									<?php endif; ?>
-								</td>
-								<td class="tix-column-per-ticket">
-								<?php if ( $price > 0 ) : ?>
-									<?php echo $this->append_currency( $price ); ?>
-								<?php else : ?>
-									Free
-								<?php endif; ?>
-								</td>
-								<td class="tix-column-quantity"><?php echo intval( $count ); ?></td>
-								<!-- // Basheer found a price calculation ! -->
-								<td class="tix-column-price"><?php echo $this->append_currency( $price  * intval( $count ) ); ?></td>
-							</tr>
-						<?php endforeach; ?>
+									</td>
+									<td class="tix-column-extra-price">
+										<?php echo "\$&nbsp;0.00"; //this will be changed in jQuery based on checkbox questions ?>
+									</td>
+									<!--<td class="tix-column-quantity"><?php echo intval( $count ); ?></td>-->
+									<!-- Basheer found a price calculation ! -->
+									<td class="tix-column-price"><?php echo $this->append_currency( $price ); ?></td>
+								</tr>
+							<?php endfor; // end for each actual ticket (or attendee) ?>
+						<?php endforeach; // end for each ticket type ?>
 						<tr class="tix-row-total">
-							<td colspan="3" style="text-align: right">
+							<td colspan="4" style="text-align: right">
 								<?php if ( $this->coupon ) : ?>
 									<?php
 										$discount_price = (float) $this->coupon->tix_discount_price;
