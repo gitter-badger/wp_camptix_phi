@@ -2414,6 +2414,7 @@ class CampTix_Plugin {
 		foreach ( $tickets as $ticket ) {
 			$totals->sold += $ticket->tix_sold_count;
 			$totals->discounted += $ticket->tix_discounted;
+			// Basheer found a price calculation !
 			$totals->sub_total += $ticket->tix_sold_count * $ticket->tix_price;
 			$totals->revenue += $ticket->tix_sold_count * $ticket->tix_price - $ticket->tix_discounted;
 			$totals->remaining += $ticket->tix_remaining;
@@ -2422,8 +2423,10 @@ class CampTix_Plugin {
 				__( 'Ticket type', 'camptix' ) => esc_html( $ticket->post_title ),
 				__( 'Sold', 'camptix' ) => $ticket->tix_sold_count,
 				__( 'Remaining', 'camptix' ) => $ticket->tix_remaining,
+				// Basheer found a price calculation !
 				__( 'Sub-Total', 'camptix' ) => $this->append_currency( $ticket->tix_sold_count * $ticket->tix_price ),
 				__( 'Discounted', 'camptix' ) => $this->append_currency( $ticket->tix_discounted ),
+				// Basheer found a price calculation !
 				__( 'Revenue', 'camptix' ) => $this->append_currency( $ticket->tix_sold_count * $ticket->tix_price - $ticket->tix_discounted ),
 			);
 		}
@@ -4290,6 +4293,7 @@ class CampTix_Plugin {
 					'price' => $ticket->tix_discounted_price,
 				);
 				$this->order['items'][] = $item;
+				// Basheer found a price calculation !
 				$this->order['total'] += $item['price'] * $item['quantity'];
 			}
 		}
@@ -4678,6 +4682,7 @@ class CampTix_Plugin {
 				<table class="tix_tickets_table tix-order-summary">
 					<thead>
 						<tr>
+							<th class="tix-column-identification"><?php _e( 'ID', 'camptix' ); ?></th>
 							<th class="tix-column-description"><?php _e( 'Description', 'camptix' ); ?></th>
 							<th class="tix-column-per-ticket"><?php _e( 'Per Ticket', 'camptix' ); ?></th>
 							<th class="tix-column-quantity"><?php _e( 'Quantity', 'camptix' ); ?></th>
@@ -4689,9 +4694,13 @@ class CampTix_Plugin {
 							<?php
 								$ticket = $this->tickets[$ticket_id];
 								$price = ( $ticket->tix_coupon_applied ) ? $ticket->tix_discounted_price : $ticket->tix_price;
+								// Basheer found a price calculation !
 								$total += $price * $count;
 							?>
 							<tr>
+								<td class="tix-column-description">
+									<?php echo $ticket ?>
+								</td>
 								<td class="tix-column-description">
 									<strong><?php echo $ticket->post_title; ?></strong>
 									<?php if ( $ticket->tix_coupon_applied ) : ?>
@@ -4706,6 +4715,7 @@ class CampTix_Plugin {
 								<?php endif; ?>
 								</td>
 								<td class="tix-column-quantity"><?php echo intval( $count ); ?></td>
+								<!-- // Basheer found a price calculation ! -->
 								<td class="tix-column-price"><?php echo $this->append_currency( $price  * intval( $count ) ); ?></td>
 							</tr>
 						<?php endforeach; ?>
@@ -6075,6 +6085,7 @@ class CampTix_Plugin {
 		// Recount the total.
 		$order['total'] = 0;
 		foreach ( $order['items'] as $item )
+			// Basheer found a price calculation !
 			$order['total'] += $item['price'] * $item['quantity'];
 
 		if ( ! empty( $this->error_flags ) ) {
@@ -6359,6 +6370,7 @@ class CampTix_Plugin {
 		$receipt_content = '';
 		foreach ( $order['items'] as $item ) {
 			$ticket = get_post( $item['id'] );
+			// Basheer found a price calculation !
 			$receipt_content .= sprintf( "* %s (%s) x%d = %s\n", $ticket->post_title, $this->append_currency( $item['price'], false ), $item['quantity'], $this->append_currency( $item['price'] * $item['quantity'], false ) );
 		}
 
