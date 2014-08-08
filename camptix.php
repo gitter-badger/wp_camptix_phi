@@ -4097,9 +4097,6 @@ class CampTix_Plugin {
 		// Basheer added this for testing
 		// we will modify ticket and order prices by adding workshop question extra
 		
-		// the original prices before workshop prices are added
-		$current_ticket_price = (float) get_post_meta( $post_id, 'tix_ticket_price', true );
-		$current_order_total = (float) get_post_meta( $post_id, 'tix_order_total', true );
 		// extra price added based on workshop questions
 		// first, pull the questions from the current ticket
 		$ticket_id = get_post_meta( $post_id, 'tix_ticket_id', true );
@@ -4107,29 +4104,45 @@ class CampTix_Plugin {
 		$answers = get_post_meta( $post_id, 'tix_questions', true );
 		
 		// go through all possible questions for this ticket, and extract the given answers
+		$prices_array = array();
 		foreach ( $questions as $question ) {
 			if ( isset( $answers[ $question->ID ] ) ) {
 				$answer = $answers[ $question->ID ];
-				if ( is_array( $answer ) )
-					$answer = implode( ', ', $answer ); // this ONLY handles ONE question (the first one)!!!
-				update_post_meta( $post_id, 'tix_first_name', $answer ); //for now, it jst plops the answers into first name
+				$answer = array_values($answer);
+				for ($i = 0; $i <  count($answer); $i++) {
+					if (strpos($answer[$i],'.') === 0) { //check if "." is at beginning of checkbox value
+						$pieces = explode("$", $answer[$i]);
+						floatval($pieces);
+						array_push($prices_array, $pieces[1]);
+					}
+				};
 			}
+			
 		}
-		
-		//TODO should now use the given answers and extract extra_price to add to ticket
-		
-		$first_name = get_post_meta( $post_id, 'tix_first_name', true );
-		$last_name = get_post_meta( $post_id, 'tix_last_name', true );
-		
-		// foreach ( $answers as $answer ) {
-		// 	echo $answer->ID;
-		// }
-		$extra_price = 0; // ???
-		
+
+		// the original prices before workshop prices are added
+		$current_ticket_price = (float) get_post_meta( $post_id, 'tix_ticket_price', true );
+
+		$current_order_total = (float) get_post_meta( $post_id, 'tix_order_total', true );
+
+		//the extra price that is added to the ticket
+		$extra_price = array_sum($prices_array);
+
+
 		// new prices after workshops are added
 		$updated_ticket_price = $current_ticket_price + $extra_price;
+		update_post_meta( $post_id, 'tix_ticket_price', $updated_ticket_price );
+
 		$updated_order_total = $current_order_total + $extra_price;
-		
+		update_post_meta( $post_id, 'tix_order_total', $updated_order_total );
+
+
+
+
+
+		$first_name = get_post_meta( $post_id, 'tix_first_name', true );
+		$last_name = get_post_meta( $post_id, 'tix_last_name', true );
+		//you there, here 
 		// No infinite loops please.
 		remove_action( 'save_post', array( $this, __FUNCTION__ ) );
 
@@ -4752,7 +4765,7 @@ class CampTix_Plugin {
 									<?php endif; ?>
 									</td>
 									<td class="tix-column-extra-price">
-										<?php echo "\$&nbsp;0.00"; //this will be changed in jQuery based on checkbox questions ?>
+										<?php echo $this->append_currency( 0 ); //this will be changed in jQuery based on checkbox questions?> 
 									</td>
 									<!--<td class="tix-column-quantity"><?php echo intval( $count ); ?></td>-->
 									<!-- Basheer found a price calculation ! -->
