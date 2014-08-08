@@ -4093,10 +4093,43 @@ class CampTix_Plugin {
 		foreach ( $search_meta_fields as $key )
 			if ( get_post_meta( $post_id, $key, true ) )
 				$data[ $key ] = sprintf( "%s:%s", $key, maybe_serialize( get_post_meta( $post_id, $key, true ) ) );
-
+		
+		// Basheer added this for testing
+		// we will modify ticket and order prices by adding workshop question extra
+		
+		// the original prices before workshop prices are added
+		$current_ticket_price = (float) get_post_meta( $post_id, 'tix_ticket_price', true );
+		$current_order_total = (float) get_post_meta( $post_id, 'tix_order_total', true );
+		// extra price added based on workshop questions
+		// first, pull the questions from the current ticket
+		$ticket_id = get_post_meta( $post_id, 'tix_ticket_id', true );
+		$questions = $this->get_sorted_questions( $ticket_id );
+		$answers = get_post_meta( $post_id, 'tix_questions', true );
+		
+		// go through all possible questions for this ticket, and extract the given answers
+		foreach ( $questions as $question ) {
+			if ( isset( $answers[ $question->ID ] ) ) {
+				$answer = $answers[ $question->ID ];
+				if ( is_array( $answer ) )
+					$answer = implode( ', ', $answer ); // this ONLY handles ONE question (the first one)!!!
+				update_post_meta( $post_id, 'tix_first_name', $answer ); //for now, it jst plops the answers into first name
+			}
+		}
+		
+		//TODO should now use the given answers and extract extra_price to add to ticket
+		
 		$first_name = get_post_meta( $post_id, 'tix_first_name', true );
 		$last_name = get_post_meta( $post_id, 'tix_last_name', true );
-
+		
+		// foreach ( $answers as $answer ) {
+		// 	echo $answer->ID;
+		// }
+		$extra_price = 0; // ???
+		
+		// new prices after workshops are added
+		$updated_ticket_price = $current_ticket_price + $extra_price;
+		$updated_order_total = $current_order_total + $extra_price;
+		
 		// No infinite loops please.
 		remove_action( 'save_post', array( $this, __FUNCTION__ ) );
 
