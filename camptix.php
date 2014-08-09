@@ -4133,10 +4133,6 @@ class CampTix_Plugin {
 		$updated_ticket_price = $current_ticket_price + $extra_price;
 		update_post_meta( $post_id, 'tix_ticket_price', $updated_ticket_price );
 
-		$updated_order_total = $current_order_total + $extra_price;
-		update_post_meta( $post_id, 'tix_order_total', $updated_order_total );
-
-
 
 
 
@@ -4326,21 +4322,43 @@ class CampTix_Plugin {
 			}
 		}
 
+		// pull the new individual ticket prices (includes extra workshop prices from $_POST from previous checkout form) 
+		$attendee_prices = array();
+		$counter_thingie=1; // the names for hidden <input> from previous form start from 1
+		while(isset( $_POST['attendee-number-' . $counter_thingie] )){
+			array_push($attendee_prices , $_POST['attendee-number-'. $counter_thingie]);
+			$counter_thingie++;
+		}
+		
+		/*	
+		the main change Phi made was to change the order structure from creating an item for every ticket type to creating an item for every individual ticket
+		so, instead of looping through every ticket type and getting the quantity of tickets for this ticket type, we simply loop through every individual ticket (or attendee) and
+		pull the price from the given $_POST variable in the previous form (which contains the checkbox workshop extra prices, unlike the ticket type price, which doesn't include those extra prices)
+		*/
 		// Make an order.
+		$current_ticket_index = 0; // index for each individual ticket, not ticket type
 		$this->order = array( 'items' => array(), 'total' => 0 );
 		if ( isset( $_REQUEST['tix_tickets_selected'] ) ) {
-			foreach ( $_REQUEST['tix_tickets_selected'] as $ticket_id => $count ) {
-				$ticket = $this->tickets[ $ticket_id ];
-				$item = array(
-					'id' => $ticket->ID,
-					'name' => $ticket->post_title,
-					'description' => $ticket->post_excerpt,
-					'quantity' => $count,
-					'price' => $ticket->tix_discounted_price,
-				);
-				$this->order['items'][] = $item;
-				// Basheer found a price calculation !
-				$this->order['total'] += $item['price'] * $item['quantity'];
+			foreach ( $_REQUEST['tix_tickets_selected'] as $ticket_id => $count ) { // loop through each ticket type
+				for ($i = 0; $i < $count; $i++) {	// loop through each individual ticket of that type, $count is the number of tickets of that type
+					$ticket = $this->tickets[ $ticket_id ];
+					
+					
+					// update_post_meta( $post_id, 'tix_ticket_discounted_price', floatval($attendee_prices[$current_ticket_index] );
+
+					$item = array(
+						'id' => $ticket->ID,
+						'name' => $ticket->post_title,
+						'description' => $ticket->post_excerpt,
+						'quantity' => 1, // use quantity of one in each item, since each individual ticket is its own item
+						// 'quantity' => $count,
+						'price' => floatval($attendee_prices[$current_ticket_index]), // use the updated price (includes checkbox workshop extra prices)
+						// 'price' => $ticket->tix_discounted_price,
+					);
+					$this->order['items'][] = $item;
+					$this->order['total'] += $item['price'] * $item['quantity'];
+					$current_ticket_index++;
+				};
 			}
 		}
 
@@ -4738,6 +4756,7 @@ class CampTix_Plugin {
 					</thead>
 					<tbody>
 						<?php $number_of_tickets = 0; ?>
+						<?php $prices_array = array(); ?>
 						<?php foreach ( $this->tickets_selected as $ticket_id => $count ) : // loops through each ticket type ?>
 							<?php
 								$ticket = $this->tickets[$ticket_id];
@@ -4760,6 +4779,8 @@ class CampTix_Plugin {
 									<td class="tix-column-per-ticket">
 									<?php if ( $price > 0 ) : ?>
 										<?php echo $this->append_currency( $price ); ?>
+										<?php array_push($prices_array, $price); ?>
+									
 									<?php else : ?>
 										Free
 									<?php endif; ?>
@@ -4770,9 +4791,11 @@ class CampTix_Plugin {
 									<!--<td class="tix-column-quantity"><?php echo intval( $count ); ?></td>-->
 									<!-- Basheer found a price calculation ! -->
 									<td class="tix-column-price"><?php echo $this->append_currency( $price ); ?></td>
+									<input type="hidden" name="attendee-number-<?php echo intval($number_of_tickets)?>" />
 								</tr>
 							<?php endfor; // end for each actual ticket (or attendee) ?>
 						<?php endforeach; // end for each ticket type ?>
+
 						<tr class="tix-row-total">
 							<td colspan="4" style="text-align: right">
 								<?php if ( $this->coupon ) : ?>
@@ -6120,10 +6143,13 @@ class CampTix_Plugin {
 			if ( $item['quantity'] < 1 )
 				continue;
 
+			
+			// WARNING we (Phi) turned off this check because of how we calculate order prices (each individual ticket)
+			
 			// Check pricing
 			if ( (float) $item['price'] != (float) $ticket->tix_discounted_price ) {
-				$this->error_flag( 'tickets_price_error' );
-				continue;
+				// $this->error_flag( 'tickets_price_error' );
+				// continue;
 			}
 
 			$items_clean[] = $item;

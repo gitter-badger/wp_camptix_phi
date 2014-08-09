@@ -87,6 +87,30 @@
 		};
 	};
 
+	$(".tix-submit input[type='submit']").click(function(){
+		push_prices();
+	});
+
+
+	function push_prices(){
+		var rows = $(".tix-order-summary tbody").children();
+		for (var i = 0; i < rows.length - 1; i++) {
+			var ammar_price = $(".tix-order-summary tbody tr:eq(" + i + ") td.tix-column-price").html();
+
+			if (ammar_price.indexOf(';') > -1) { // removes &nbsp; from ammar_price if it exists
+				ammar_price = ammar_price.substr(ammar_price.indexOf(";") + 1 , ammar_price.length - 1);
+			};
+	
+			ammar_price = parseFloat(ammar_price);
+
+
+			$(".tix-order-summary tbody tr:eq(" + i + ") input[type='hidden']").attr("value" , ammar_price);
+
+
+		};
+	};
+
+
 	var tix = $( '#tix' );
 	$( tix ).addClass( 'tix-js' );
 
