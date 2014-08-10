@@ -2371,17 +2371,27 @@ class CampTix_Plugin {
 
 				$ticket_id = get_post_meta( $attendee_id, 'tix_ticket_id', true );
 				if ( isset( $tickets[$ticket_id] ) ) {
+
 					$tickets[$ticket_id]->tix_sold_count++;
 
 					$order_total = (float) get_post_meta( $attendee_id, 'tix_order_total', true );
 					$txn = get_post_meta( $attendee_id, 'tix_transaction_id', true );
 					if ( ! empty( $txn ) && ! isset( $transactions[$txn] ) ){
-						$transactions[$txn] = $order_total;					 
+						$transactions[$txn] = $order_total;	
 						
+						// uncomment this line (and comment below similar line) to only include actual paypal paid transaction ticket prices in sub_total
+						// $tickets[$ticket_id]->sub_total += (floatval(get_post_meta( $attendee_id, 'tix_ticket_price', true)) );	
+
+					}
+					
+					
+					// this condition includes on-site (or manual admin edit) payments. Comment out these lines and uncomment above to exclude on-site payments and only use paypal payments in revenue
+					if( get_post_status( $attendee_id ) == 'publish'){
 						// add up total prices of each ticket type (without discounts)
 						// BUG: the subtotal here should include price with workshop before discount, not after discount (tix_ticket_price is after discount)
-                        $tickets[$ticket_id]->sub_total += (floatval(get_post_meta( $attendee_id, 'tix_ticket_price', true))  + get_post_meta( $attendee_id, 'tix_ticket_discounted_price', true) );	
+                        $tickets[$ticket_id]->sub_total += (floatval(get_post_meta( $attendee_id, 'tix_ticket_price', true)) );	
 					}
+
 
 					$coupon_id = get_post_meta( $attendee_id, 'tix_coupon_id', true );
 					if ( $coupon_id ) {
@@ -2409,6 +2419,8 @@ class CampTix_Plugin {
 						}
 					}
 				}
+				
+
 
 				// Commented out because we're not doing any caching.
 				// Delete caches individually rather than clean_post_cache( $attendee_id ),
@@ -3882,6 +3894,7 @@ class CampTix_Plugin {
 			}
 		}
 		$this->table( $rows, 'tix-attendees-info' );
+
 	}
 
 	function create_reservation( $post_id, $name, $quantity ) {
@@ -4113,37 +4126,54 @@ class CampTix_Plugin {
 		foreach ( $search_meta_fields as $key )
 			if ( get_post_meta( $post_id, $key, true ) )
 				$data[ $key ] = sprintf( "%s:%s", $key, maybe_serialize( get_post_meta( $post_id, $key, true ) ) );
+
+		// modifies the tix_ticket_price and the tix_order total for each attendee in the database
+		// currently they are as follows:
+		// tix_ticket_price is the original ticket price without coupons plus price modifiers like workshops
+		// tix_order_total is the ticket price minus coupon value if applies
 		
-		// Basheer added this for testing
-		// we will modify ticket and order prices by adding workshop question extra
-		
-		// extra price added based on workshop questions
 		// first, pull the questions from the current ticket
 		$ticket_id = get_post_meta( $post_id, 'tix_ticket_id', true );
 		$questions = $this->get_sorted_questions( $ticket_id );
 		$answers = get_post_meta( $post_id, 'tix_questions', true );
-		
-		// go through all possible questions for this ticket, and extract the given answers
+
+
+		// go through all possible questions for this ticket, and extract the answers that should modify the ticket price; i.e. answers that start with "."
 		$prices_array = array();
 		foreach ( $questions as $question ) {
 			if ( isset( $answers[ $question->ID ] ) ) {
 				$answer = $answers[ $question->ID ];
-				$answer = array_values($answer);
-				for ($i = 0; $i <  count($answer); $i++) {		// SUSPECTED BUG HERE
-					if (strpos($answer[$i],'.') === 0) { //check if "." is at beginning of checkbox value
-						$pieces = explode("$", $answer[$i]);
+				//if answer is an array then get each modifying value from the array
+				if ( is_array( $answer ) ) {
+					$answer = array_values($answer);
+					for ($i = 0; $i <  count($answer); $i++) {
+						if (strpos($answer[$i],'.') === 0) { //check if "." is at beginning of checkbox value
+							$pieces = explode("$", $answer[$i]);
+							array_push($prices_array, floatval($pieces[1]));
+						}
+					};
+				//because radio button answers are string rather than array, their value will be pulles differently
+				} else {
+					if (strpos($answer,'.') === 0) { //check if "." is at beginning of checkbox value
+						$pieces = explode("$", $answer);
 						array_push($prices_array, floatval($pieces[1]));
 					}
-				};
+				}
 			}
-			
 		}
-		
+
 		// update_post_meta( $post_id, 'tix_first_name', );
 
 
 		// the original prices before workshop prices are added
-		$current_ticket_price = (float) get_post_meta( $post_id, 'tix_ticket_price', true );
+		$ticket_type_id = get_post_meta ( $post_id, 'tix_ticket_id', true );
+		
+		//price of this type of ticket (without discounts or workshops)
+		$current_ticket_price = get_post_meta( $ticket_type_id, 'tix_price', true );
+		
+		// $current_ticket_price = (float) get_post_meta( $post_id, 'tix_ticket_price', true );
+
+		$discounted_ticket_price = (float) get_post_meta( $post_id, 'tix_ticket_discounted_price', true );
 
 		$current_order_total = (float) get_post_meta( $post_id, 'tix_order_total', true );
 
@@ -4154,6 +4184,18 @@ class CampTix_Plugin {
 		// new prices after workshops are added
 		$updated_ticket_price = $current_ticket_price + $extra_price;
 		update_post_meta( $post_id, 'tix_ticket_price', $updated_ticket_price );
+
+		$updated_order_total = $discounted_ticket_price + $extra_price;
+		//this condition ensures that coupons only affect one ticket at a time
+		if ($updated_order_total <= 0) {
+			$updated_order_total = 0;
+		}
+		update_post_meta( $post_id, 'tix_order_total', $updated_order_total );
+
+
+
+
+
 
 
 		$first_name = get_post_meta( $post_id, 'tix_first_name', true );
@@ -4777,7 +4819,7 @@ class CampTix_Plugin {
 							<th class="tix-column-per-ticket"><?php _e( 'Per Ticket', 'camptix' ); ?></th>
 							<th class="tix-column-extra-price"><?php _e( 'Workshop Price', 'camptix' ); ?></th>
 							<!--  <th class="tix-column-quantity"><?php _e( 'Quantity', 'camptix' ); ?></th> -->
-							<th class="tix-column-price"><?php _e( 'Price', 'camptix' ); ?></th>
+							<th class="tix-column-price"><?php _e( 'Final Price', 'camptix' ); ?></th>
 						</tr>
 					</thead>
 					<tbody>
@@ -4802,13 +4844,8 @@ class CampTix_Plugin {
 										<?php endif; ?>
 									</td>
 									<td class="tix-column-per-ticket">
-									<?php if ( $price > 0 ) : ?>
 										<?php echo $this->append_currency( $price ); ?>
 										<?php array_push($prices_array, $price); ?>
-									
-									<?php else : ?>
-										Free
-									<?php endif; ?>
 									</td>
 									<td class="tix-column-extra-price">
 										<?php echo $this->append_currency( 0 ); //this will be changed in jQuery based on checkbox questions?> 
@@ -6003,6 +6040,7 @@ class CampTix_Plugin {
 				// Write post content (triggers save_post).
 				wp_update_post( array( 'ID' => $post_id ) );
 				$attendee->post_id = $post_id;
+
 			}
 		}
 

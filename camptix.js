@@ -28,20 +28,37 @@
 
 
 	//this updates the order summary table with checked checkbox prices each time the pages loads like if there is an error when the user submits the form
-	$(".tix-attendee-form input[type='radio'], .tix-attendee-form input[type='checkbox']").each(function () {
-		var total_price = $(".tix-order-summary .tix-row-total td:eq(1) strong").html();
-		if (total_price.indexOf(';') > -1) { // removes &nbsp; from total_price if it exists
-			total_price = total_price.substr(total_price.indexOf(";") + 1 , total_price.length - 1);
+	var rows = $(".tix-order-summary tbody").children().length - 1;
+	var ticket_prices = 0;
+	for (var i = 0; i < rows; i++) {
+		var ticket_price = $(".tix-order-summary tbody tr:eq(" + i + ")").find(".tix-column-price").html();
+		if (ticket_price.indexOf(';') > -1) { // removes &nbsp; from total_price if it exists
+			ticket_price = ticket_price.substr(ticket_price.indexOf(";") + 1 , ticket_price.length - 1);
 		};
-		total_price = parseFloat(total_price);
-		if (total_price <= 0) {
-	 	$(".tix-submit select").css("display" , "none");
-	 };
+		ticket_price = parseFloat(ticket_price);
+		if (ticket_price <= 0) {
+			ticket_price = 0;
+		};
+		ticket_prices = ticket_prices + ticket_price;
+		ticket_price = ticket_price.toFixed(2);
+		ticket_price = "$&nbsp;" + ticket_price;
+		$(".tix-order-summary tbody tr:eq(" + i + ")").find(".tix-column-price").html(ticket_price);
+	}
+	if (ticket_prices <= 0) {
+		$(".tix-submit select").css("display" , "none");
+	};
+	ticket_prices = ticket_prices.toFixed(2);
+	ticket_prices = "$&nbsp;" + ticket_prices;
+	$(".tix-order-summary .tix-row-total td:eq(1) strong").html(ticket_prices);
 
+
+
+	$(".tix-attendee-form input[type='radio'], .tix-attendee-form input[type='checkbox']").each(function () {
 		if ( $(this).is(":checked") ){
 			update_prices( $(this) );
 		};
 	});
+
 
  //this updates the order summary table prices according to checkbox states n.b. only checkbox values that start with "." are considered in appending the price
 	$(".tix-attendee-form td").on("mousedown" , "label" , function(){
@@ -53,18 +70,18 @@
 	});
 
 	$(".tix-attendee-form input[type='radio']").on("click" , function(){
-  var $radio = $(this);
-
-  // if this was previously checked
-  if ($radio.data('waschecked') === true) {
-      $radio.prop('checked', false);
-      $radio.data('waschecked', false);
-  } else {
-      $radio.data('waschecked', true);
+		var $radio = $(this);
+		
+		// if this was previously checked
+		if ($radio.data('waschecked') === true) {
+			$radio.prop('checked', false);
+			$radio.data('waschecked', false);
+		} else {
+			$radio.data('waschecked', true);
 		}
-	 update_prices( $(this) );
-  // remove was checked from other radios
-  $radio.parent().siblings().children('input[type="radio"]').data('waschecked', false);
+		update_prices( $(this) );
+		// remove was checked from other radios
+		$radio.parent().siblings().children('input[type="radio"]').data('waschecked', false);
 	});
 
 	function update_prices(e){
@@ -74,7 +91,7 @@
 		var ticket_number = ticket_name.substr(0 , ticket_name.indexOf(".")) - 1;
 		//ticket_name = ticket_name.substr(ticket_name.indexOf(".") , ticket_name.length - 1);
 
-		var current_ticket_price = $(".tix-order-summary tbody tr:eq(" + ticket_number + ")").find(".tix-column-price").html();
+		var current_ticket_price = $(".tix-order-summary tbody tr:eq(" + ticket_number + ")").find(".tix-column-per-ticket").html();
 		var extra_price = $(".tix-order-summary tbody tr:eq(" + ticket_number + ")").find(".tix-column-extra-price").html();
 
 		if (current_ticket_price.indexOf(';') > -1) { // removes &nbsp; from current_ticket_price if it exists
@@ -84,12 +101,6 @@
 			extra_price = extra_price.substr(extra_price.indexOf(";") + 1 , extra_price.length - 1);
 		};
 		
-		var total_price = $(".tix-order-summary .tix-row-total td:eq(1) strong").html();
-		if (total_price.indexOf(';') > -1) { // removes &nbsp; from total_price if it exists
-			total_price = total_price.substr(total_price.indexOf(";") + 1 , total_price.length - 1);
-		};
-
-		total_price = parseFloat(total_price);
 		current_ticket_price = parseFloat(current_ticket_price);
 		extra_price = parseFloat(extra_price);
 		if (previously_checked[0] == ".") {
@@ -103,53 +114,49 @@
 			checkbox_price = checkbox_price.substr(checkbox_price.indexOf("$") + 1 , checkbox_price.length - 1);
 			checkbox_price = parseFloat(checkbox_price);
 			if (e.data('waschecked') === false) {
-				updated_ticket_price = current_ticket_price - previously_checked;
 				extra_price = extra_price - previously_checked;
-				total_price = total_price - previously_checked;
 			} else {
-				updated_ticket_price = current_ticket_price + checkbox_price - previously_checked;
 				extra_price = extra_price + checkbox_price - previously_checked;
-				total_price = total_price + checkbox_price - previously_checked;
 			}
 		} else	{
-			updated_ticket_price = current_ticket_price - previously_checked;
 			extra_price = extra_price - previously_checked;
-			total_price = total_price - previously_checked;
 		};
+		updated_ticket_price = current_ticket_price + extra_price;
+		if (parseFloat(updated_ticket_price) <= 0) {
+			updated_ticket_price = 0;
+		}
+		updated_ticket_price = updated_ticket_price.toFixed(2);
+		updated_ticket_price = "$&nbsp;" + updated_ticket_price;
+		$(".tix-order-summary tbody tr:eq(" + ticket_number + ")").find(".tix-column-price").html(updated_ticket_price);
 
+		extra_price = extra_price.toFixed(2);
+		extra_price = "$&nbsp;" + extra_price;
+		$(".tix-order-summary tbody tr:eq(" + ticket_number + ")").find(".tix-column-extra-price").html(extra_price);
+
+
+
+	ticket_prices = 0;
+	for (var i = 0; i < rows; i++) {
+		var ticket_price = $(".tix-order-summary tbody tr:eq(" + i + ")").find(".tix-column-price").html();
+		if (ticket_price.indexOf(';') > -1) { // removes &nbsp; from total_price if it exists
+			ticket_price = ticket_price.substr(ticket_price.indexOf(";") + 1 , ticket_price.length - 1);
+		};
+		ticket_price = parseFloat(ticket_price);
+		ticket_prices = ticket_prices + ticket_price;
+	}
+	ticket_prices = parseFloat(ticket_prices);
 		
-			updated_ticket_price = updated_ticket_price.toFixed(2);
-			updated_ticket_price = "$&nbsp;" + updated_ticket_price;
-			$(".tix-order-summary tbody tr:eq(" + ticket_number + ")").find(".tix-column-price").html(updated_ticket_price);
+		if (ticket_prices > 0) {
+			$(".tix-submit select").css("display" , "initial");
+		} else {
+			ticket_prices = 0;
+			$(".tix-submit select").css("display" , "none");
+		}
+		ticket_prices = ticket_prices.toFixed(2);
+		ticket_prices = "$&nbsp;" + ticket_prices;
+		$(".tix-order-summary .tix-row-total td:eq(1) strong").html(ticket_prices);
 
-			extra_price = extra_price.toFixed(2);
-			extra_price = "$&nbsp;" + extra_price;
-			$(".tix-order-summary tbody tr:eq(" + ticket_number + ")").find(".tix-column-extra-price").html(extra_price);
-
-		 if (total_price > 0) {
-		 	$(".tix-submit select").css("display" , "initial");
-		 }
-		 final_price = total_price;
-			total_price = total_price.toFixed(2);
-			total_price = "$&nbsp;" + total_price;
-			$(".tix-order-summary .tix-row-total td:eq(1) strong").html(total_price);
-
-		
 	};
-
-
-
-	$(".tix-attendee-form input[type='checkbox']").each(function () {
-		var total_price = $(".tix-order-summary .tix-row-total td:eq(1) strong").html();
-		if (total_price.indexOf(';') > -1) { // removes &nbsp; from total_price if it exists
-			total_price = total_price.substr(total_price.indexOf(";") + 1 , total_price.length - 1);
-		};
-		total_price = parseFloat(total_price);
-		if (total_price <= 0) {
-	 	$(".tix-submit select").css("display" , "none");
-	 };
-	});
-
 
 	$(".tix-attendee-form input[type='checkbox']").change(function(){
 		 checkbox_update_prices( $(this) );
@@ -163,7 +170,7 @@
 		var ticket_number = ticket_name.substr(0 , ticket_name.indexOf(".")) - 1;
 		//ticket_name = ticket_name.substr(ticket_name.indexOf(".") , ticket_name.length - 1);
 	
-		var current_ticket_price = $(".tix-order-summary tbody tr:eq(" + ticket_number + ")").find(".tix-column-price").html();
+		var current_ticket_price = $(".tix-order-summary tbody tr:eq(" + ticket_number + ")").find(".tix-column-per-ticket").html();
 		var extra_price = $(".tix-order-summary tbody tr:eq(" + ticket_number + ")").find(".tix-column-extra-price").html();
 	
 		if (current_ticket_price.indexOf(';') > -1) { // removes &nbsp; from current_ticket_price if it exists
@@ -172,37 +179,47 @@
 		if (extra_price.indexOf(';') > -1) { // removes &nbsp; from extra_price if it exists
 			extra_price = extra_price.substr(extra_price.indexOf(";") + 1 , extra_price.length - 1);
 		};
-		
-		var total_price = $(".tix-order-summary .tix-row-total td:eq(1) strong").html();
-		if (total_price.indexOf(';') > -1) { // removes &nbsp; from total_price if it exists
-			total_price = total_price.substr(total_price.indexOf(";") + 1 , total_price.length - 1);
-		};
-	
-		total_price = parseFloat(total_price);
 		current_ticket_price = parseFloat(current_ticket_price);
 		extra_price = parseFloat(extra_price);
+
 		if(e.is(":checked")) {
-			updated_ticket_price = current_ticket_price + checkbox_price;
 			extra_price = extra_price + checkbox_price;
-			total_price = total_price + checkbox_price;
 		} else {
-			updated_ticket_price = current_ticket_price - checkbox_price;
 			extra_price = extra_price - checkbox_price;
-			total_price = total_price - checkbox_price;
 		};
+		updated_ticket_price = current_ticket_price + extra_price;
+		if (parseFloat(updated_ticket_price) <= 0) {
+			updated_ticket_price = 0;
+		}
+
 		updated_ticket_price = updated_ticket_price.toFixed(2);
 		updated_ticket_price = "$&nbsp;" + updated_ticket_price;
 		$(".tix-order-summary tbody tr:eq(" + ticket_number + ")").find(".tix-column-price").html(updated_ticket_price);
 		extra_price = extra_price.toFixed(2);
 		extra_price = "$&nbsp;" + extra_price;
 		$(".tix-order-summary tbody tr:eq(" + ticket_number + ")").find(".tix-column-extra-price").html(extra_price);
-	 if (total_price > 0) {
-	 	$(".tix-submit select").css("display" , "initial");
-	 }
-	 final_price = total_price;
-		total_price = total_price.toFixed(2);
-		total_price = "$&nbsp;" + total_price;
-		$(".tix-order-summary .tix-row-total td:eq(1) strong").html(total_price);
+
+	ticket_prices = 0;
+	for (var i = 0; i < rows; i++) {
+		var ticket_price = $(".tix-order-summary tbody tr:eq(" + i + ")").find(".tix-column-price").html();
+		if (ticket_price.indexOf(';') > -1) { // removes &nbsp; from total_price if it exists
+			ticket_price = ticket_price.substr(ticket_price.indexOf(";") + 1 , ticket_price.length - 1);
+		};
+		ticket_price = parseFloat(ticket_price);
+		ticket_prices = ticket_prices + ticket_price;
+	}
+	ticket_prices = parseFloat(ticket_prices);
+		
+		if (ticket_prices > 0) {
+			$(".tix-submit select").css("display" , "initial");
+		} else {
+			ticket_prices = 0;
+			$(".tix-submit select").css("display" , "none");
+		}
+		ticket_prices = ticket_prices.toFixed(2);
+		ticket_prices = "$&nbsp;" + ticket_prices;
+		$(".tix-order-summary .tix-row-total td:eq(1) strong").html(ticket_prices);
+
 	};
 
 
