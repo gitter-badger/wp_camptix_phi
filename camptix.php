@@ -4134,8 +4134,6 @@ class CampTix_Plugin {
 		update_post_meta( $post_id, 'tix_ticket_price', $updated_ticket_price );
 
 
-
-
 		$first_name = get_post_meta( $post_id, 'tix_first_name', true );
 		$last_name = get_post_meta( $post_id, 'tix_last_name', true );
 		//you there, here 
@@ -4305,8 +4303,9 @@ class CampTix_Plugin {
 					$ticket->tix_discounted_text = sprintf( __( 'Discounted %s%%', 'camptix' ), $this->coupon->tix_discount_percent );
 				}
 
-				if ( $ticket->tix_discounted_price < 0 )
-					$ticket->tix_discounted_price = 0;
+				if ( $ticket->tix_discounted_price < 0 ){
+					// $ticket->tix_discounted_price = 0;
+				}
 			}
 
 			$this->tickets[$ticket->ID] = $ticket;
@@ -4329,7 +4328,7 @@ class CampTix_Plugin {
 			array_push($attendee_prices , $_POST['attendee-number-'. $counter_thingie]);
 			$counter_thingie++;
 		}
-		
+
 		/*	
 		the main change Phi made was to change the order structure from creating an item for every ticket type to creating an item for every individual ticket
 		so, instead of looping through every ticket type and getting the quantity of tickets for this ticket type, we simply loop through every individual ticket (or attendee) and
@@ -4343,8 +4342,6 @@ class CampTix_Plugin {
 				for ($i = 0; $i < $count; $i++) {	// loop through each individual ticket of that type, $count is the number of tickets of that type
 					$ticket = $this->tickets[ $ticket_id ];
 					
-					
-					// update_post_meta( $post_id, 'tix_ticket_discounted_price', floatval($attendee_prices[$current_ticket_index] );
 
 					$item = array(
 						'id' => $ticket->ID,
@@ -4357,11 +4354,18 @@ class CampTix_Plugin {
 					);
 					$this->order['items'][] = $item;
 					$this->order['total'] += $item['price'] * $item['quantity'];
+
 					$current_ticket_index++;
 				};
 			}
 		}
 
+		// allows coupons to discount total price (ticket + workshop)
+		// here it makes sure what the customer pays is never less than zero
+		if($this->order['total'] < 0){
+			$this->order['total'] = 0;
+		}
+		
 		if ( isset( $_REQUEST['tix_coupon'] ) )
 			$this->order['coupon'] = sanitize_text_field( $_REQUEST['tix_coupon'] );
 
@@ -4761,7 +4765,6 @@ class CampTix_Plugin {
 							<?php
 								$ticket = $this->tickets[$ticket_id];
 								$price = ( $ticket->tix_coupon_applied ) ? $ticket->tix_discounted_price : $ticket->tix_price;
-								// Basheer found a price calculation !
 								$total += $price * $count;
 							?>
 							<?php for ($x = 0; $x < $count; $x++) : //loops through each individual ticket of this specific type ?>
@@ -4789,7 +4792,6 @@ class CampTix_Plugin {
 										<?php echo $this->append_currency( 0 ); //this will be changed in jQuery based on checkbox questions?> 
 									</td>
 									<!--<td class="tix-column-quantity"><?php echo intval( $count ); ?></td>-->
-									<!-- Basheer found a price calculation ! -->
 									<td class="tix-column-price"><?php echo $this->append_currency( $price ); ?></td>
 									<input type="hidden" name="attendee-number-<?php echo intval($number_of_tickets)?>" />
 								</tr>
@@ -4909,16 +4911,14 @@ class CampTix_Plugin {
 				<?php endif; ?>
 
 				<p class="tix-submit">
-					<?php if ( $total > 0 ) : ?>
 					<select name="tix_payment_method">
+						
 						<?php foreach ( $this->get_enabled_payment_methods() as $payment_method_key => $payment_method ) : ?>
 							<option <?php selected( ! empty( $this->form_data['tix_payment_method'] ) && $this->form_data['tix_payment_method'] == $payment_method_key ); ?> value="<?php echo esc_attr( $payment_method_key ); ?>"><?php echo esc_html( $payment_method['name'] ); ?></option>
 						<?php endforeach; ?>
+						
 					</select>
-					<input type="submit" value="<?php esc_attr_e( 'Checkout &rarr;', 'camptix' ); ?>" />
-					<?php else : ?>
-						<input type="submit" value="<?php esc_attr_e( 'Claim Tickets &rarr;', 'camptix' ); ?>" />
-					<?php endif; ?>
+					<input type="submit" value="<?php esc_attr_e( 'Checkout &rarr;', 'camptix' ); ?>" /> 
 					<br class="tix-clear" />
 				</p>
 			</form>
@@ -5925,6 +5925,7 @@ class CampTix_Plugin {
 		$access_token = md5( 'tix-access-token' . print_r( $_POST, true ) . time() . rand( 1, 9999 ) );
 		$payment_token = md5( 'tix-payment-token' . $access_token . time() . rand( 1, 9999 ) );
 
+
 		foreach ( $attendees as $attendee ) {
 			$post_id = wp_insert_post( array(
 				'post_title' => $this->format_name_string( "%first% %last%", $attendee->first_name, $attendee->last_name ),
@@ -5945,7 +5946,10 @@ class CampTix_Plugin {
 
 				update_post_meta( $post_id, 'tix_timestamp', time() );
 				update_post_meta( $post_id, 'tix_ticket_id', $attendee->ticket_id );
+
 				update_post_meta( $post_id, 'tix_first_name', $attendee->first_name );
+				// update_post_meta( $post_id, 'tix_first_name',  implode(', ', $attendee_prices));
+
 				update_post_meta( $post_id, 'tix_last_name', $attendee->last_name );
 				update_post_meta( $post_id, 'tix_email', $attendee->email );
 				update_post_meta( $post_id, 'tix_tickets_selected', $this->tickets_selected );
@@ -6080,8 +6084,9 @@ class CampTix_Plugin {
 					$ticket->tix_discounted_price = number_format( $ticket->tix_price - ( $ticket->tix_price * $coupon->tix_discount_percent / 100 ), 2, '.', '' );
 				}
 
-				if ( $ticket->tix_discounted_price < 0 )
-					$ticket->tix_discounted_price = 0;
+				if ( $ticket->tix_discounted_price < 0 ){
+					// $ticket->tix_discounted_price = 0;
+				}
 			}
 
 			$tickets[ $ticket->ID ] = $ticket;
@@ -6165,7 +6170,6 @@ class CampTix_Plugin {
 		// Recount the total.
 		$order['total'] = 0;
 		foreach ( $order['items'] as $item )
-			// Basheer found a price calculation !
 			$order['total'] += $item['price'] * $item['quantity'];
 
 		if ( ! empty( $this->error_flags ) ) {
@@ -6450,7 +6454,6 @@ class CampTix_Plugin {
 		$receipt_content = '';
 		foreach ( $order['items'] as $item ) {
 			$ticket = get_post( $item['id'] );
-			// Basheer found a price calculation !
 			$receipt_content .= sprintf( "* %s (%s) x%d = %s\n", $ticket->post_title, $this->append_currency( $item['price'], false ), $item['quantity'], $this->append_currency( $item['price'] * $item['quantity'], false ) );
 		}
 

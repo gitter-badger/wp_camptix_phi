@@ -8,9 +8,38 @@
 (function($){
 	
 	var	updated_ticket_price;
+	var final_price;
+	
+	var paypal_tix_submit = '<select name="tix_payment_method">\
+																											<!--<option  value="paypal">PayPal</option>-->\
+																											<option value="paypal">PayPal</option>\
+																										</select>\
+																										<!-- <input type="submit" value="Checkout &rarr;" /> -->\
+																										<input type="submit" value="Checkout →">\
+																										<br class="tix-clear">';
+
+
+	var free_tix_submit = '<!-- <input type="submit" value="Claim Tickets &rarr;" /> -->\
+																								<input type="submit" value="Claim Tickets →">\
+																								<br class="tix-clear">';
+
+
+
 
 	//this updates the order summary table with checked checkbox prices each time the pages loads like if there is an error when the user submits the form
 	$(".tix-attendee-form input[type='checkbox']").each(function () {
+
+		var total_price = $(".tix-order-summary .tix-row-total td:eq(1) strong").html();
+		if (total_price.indexOf(';') > -1) { // removes &nbsp; from total_price if it exists
+			total_price = total_price.substr(total_price.indexOf(";") + 1 , total_price.length - 1);
+		};
+		total_price = parseFloat(total_price);
+		if (total_price <= 0) {
+	 	$(".tix-submit select").css("display" , "none");
+	 };
+
+
+
 		if ( $(this).is(":checked") ){
 			update_prices( $(this) );
 		};
@@ -52,7 +81,7 @@
 			total_price = parseFloat(total_price);
 			current_ticket_price = parseFloat(current_ticket_price);
 			extra_price = parseFloat(extra_price);
-	
+
 			if(e.is(":checked")) {
 				updated_ticket_price = current_ticket_price + checkbox_price;
 				updated_ticket_price = updated_ticket_price.toFixed(2);
@@ -65,6 +94,10 @@
 				$(".tix-order-summary tbody tr:eq(" + ticket_number + ")").find(".tix-column-extra-price").html(extra_price);
 	
 				total_price = total_price + checkbox_price;
+			 if (total_price > 0) {
+			 	$(".tix-submit select").css("display" , "initial");
+			 }
+			 final_price = total_price;
 				total_price = total_price.toFixed(2);
 				total_price = "$&nbsp;" + total_price;
 				$(".tix-order-summary .tix-row-total td:eq(1) strong").html(total_price);
@@ -80,10 +113,19 @@
 				$(".tix-order-summary tbody tr:eq(" + ticket_number + ")").find(".tix-column-extra-price").html(extra_price);
 	
 				total_price = total_price - checkbox_price;
+				if (total_price <= 0) {
+			 	$(".tix-submit select").css("display" , "none");
+			 };
+			 final_price = total_price;
 				total_price = total_price.toFixed(2);
 				total_price = "$&nbsp;" + total_price;
 				$(".tix-order-summary .tix-row-total td:eq(1) strong").html(total_price);
 			};
+			
+			
+			
+			
+			
 		};
 	};
 
@@ -105,9 +147,12 @@
 
 
 			$(".tix-order-summary tbody tr:eq(" + i + ") input[type='hidden']").attr("value" , ammar_price);
-
-
 		};
+
+	 if (final_price == 0) {
+			$(".tix-submit").html(free_tix_submit);
+	 };
+
 	};
 
 
