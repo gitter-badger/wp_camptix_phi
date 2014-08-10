@@ -143,6 +143,7 @@ body.admin-bar #tix {
 
 .tix-order-summary td.tix-column-per-ticket,
 .tix-order-summary td.tix-column-quantity,
+.tix-order-summary td.tix-column-extra-price,
 .tix-order-summary td.tix-column-price {
 	vertical-align: middle;
 }
