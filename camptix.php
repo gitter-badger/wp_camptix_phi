@@ -2375,21 +2375,35 @@ class CampTix_Plugin {
 
 					$order_total = (float) get_post_meta( $attendee_id, 'tix_order_total', true );
 					$txn = get_post_meta( $attendee_id, 'tix_transaction_id', true );
-					if ( ! empty( $txn ) && ! isset( $transactions[$txn] ) )
-						$transactions[$txn] = $order_total;
+					if ( ! empty( $txn ) && ! isset( $transactions[$txn] ) ){
+						$transactions[$txn] = $order_total;					 
+						
+						// add up total prices of each ticket type (without discounts)
+						// BUG: the subtotal here should include price with workshop before discount, not after discount (tix_ticket_price is after discount)
+                        $tickets[$ticket_id]->sub_total += (floatval(get_post_meta( $attendee_id, 'tix_ticket_price', true))  + get_post_meta( $attendee_id, 'tix_ticket_discounted_price', true) );	
+					}
 
 					$coupon_id = get_post_meta( $attendee_id, 'tix_coupon_id', true );
 					if ( $coupon_id ) {
 						$discount_price = get_post_meta( $coupon_id, 'tix_discount_price', true );
 						$discount_percent = get_post_meta( $coupon_id, 'tix_discount_percent', true );
 						if ( $discount_price > 0 ) {
-							if ( $discount_price > $tickets[$ticket_id]->tix_price )
-								$discount_price = $tickets[$ticket_id]->tix_price;
+							// if ( $discount_price > $tickets[$ticket_id]->tix_price )
+							// 	$discount_price = $tickets[$ticket_id]->tix_price;
+
+							if ( $discount_price > floatval(get_post_meta( $attendee_id, 'tix_ticket_price', true)) )
+								$discount_price = floatval(get_post_meta( $attendee_id, 'tix_ticket_price', true));
+
 
 							$tickets[$ticket_id]->tix_discounted += $discount_price;
 						} elseif ( $discount_percent > 0 ) {
-							$original = $tickets[$ticket_id]->tix_price;
-							$discounted = $tickets[$ticket_id]->tix_price - ( $tickets[$ticket_id]->tix_price * $discount_percent / 100 );
+							// $original = $tickets[$ticket_id]->tix_price;
+							$original = floatval(get_post_meta( $attendee_id, 'tix_ticket_price', true));
+							
+							// $discounted = $tickets[$ticket_id]->tix_price - ( $tickets[$ticket_id]->tix_price * $discount_percent / 100 );
+							$discounted = $original - ( $original * $discount_percent / 100 );
+
+
 							$discounted = $original - $discounted;
 							$tickets[$ticket_id]->tix_discounted += $discounted;
 						}
@@ -2415,8 +2429,11 @@ class CampTix_Plugin {
 			$totals->sold += $ticket->tix_sold_count;
 			$totals->discounted += $ticket->tix_discounted;
 			// Basheer found a price calculation !
-			$totals->sub_total += $ticket->tix_sold_count * $ticket->tix_price;
-			$totals->revenue += $ticket->tix_sold_count * $ticket->tix_price - $ticket->tix_discounted;
+
+            // $totals->sub_total += $ticket->tix_sold_count * $ticket->tix_price;
+            $totals->sub_total += $ticket->sub_total;
+            // $totals->revenue += $ticket->tix_sold_count * $ticket->tix_price - $ticket->tix_discounted;
+			$totals->revenue += $ticket->sub_total - $ticket->tix_discounted;			
 			$totals->remaining += $ticket->tix_remaining;
 
 			$rows[] = array(
@@ -2424,10 +2441,13 @@ class CampTix_Plugin {
 				__( 'Sold', 'camptix' ) => $ticket->tix_sold_count,
 				__( 'Remaining', 'camptix' ) => $ticket->tix_remaining,
 				// Basheer found a price calculation !
-				__( 'Sub-Total', 'camptix' ) => $this->append_currency( $ticket->tix_sold_count * $ticket->tix_price ),
+				// __( 'Sub-Total', 'camptix' ) => $this->append_currency( $ticket->tix_sold_count * $ticket->tix_price ),
+				__( 'Sub-Total', 'camptix' ) => $this->append_currency( $ticket->sub_total ),
 				__( 'Discounted', 'camptix' ) => $this->append_currency( $ticket->tix_discounted ),
 				// Basheer found a price calculation !
-				__( 'Revenue', 'camptix' ) => $this->append_currency( $ticket->tix_sold_count * $ticket->tix_price - $ticket->tix_discounted ),
+				// __( 'Revenue', 'camptix' ) => $this->append_currency( $ticket->tix_sold_count * $ticket->tix_price - $ticket->tix_discounted ),
+				__( 'Revenue', 'camptix' ) => $this->append_currency( $ticket->sub_total - $ticket->tix_discounted ),
+
 			);
 		}
 		$rows[] = array(
@@ -4109,16 +4129,18 @@ class CampTix_Plugin {
 			if ( isset( $answers[ $question->ID ] ) ) {
 				$answer = $answers[ $question->ID ];
 				$answer = array_values($answer);
-				for ($i = 0; $i <  count($answer); $i++) {
+				for ($i = 0; $i <  count($answer); $i++) {		// SUSPECTED BUG HERE
 					if (strpos($answer[$i],'.') === 0) { //check if "." is at beginning of checkbox value
 						$pieces = explode("$", $answer[$i]);
-						floatval($pieces);
-						array_push($prices_array, $pieces[1]);
+						array_push($prices_array, floatval($pieces[1]));
 					}
 				};
 			}
 			
 		}
+		
+		// update_post_meta( $post_id, 'tix_first_name', );
+
 
 		// the original prices before workshop prices are added
 		$current_ticket_price = (float) get_post_meta( $post_id, 'tix_ticket_price', true );
