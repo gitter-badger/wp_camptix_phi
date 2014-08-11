@@ -3986,8 +3986,6 @@ class CampTix_Plugin {
 					$question_values = array();
 
 				// creates an array with a zero for each question_value (or answer) only if it doesn't already exist
-				// $question_values_used = array();
-				// $question_values_used = array_pad($question_values_used, count($question_values), 0 );
 				$question_values_used = get_post_meta( $question['post_id'], 'tix_values_used', true);
 				if( empty($question_values_used) ){
 					$question_values_used = array_fill(0, count($question_values), 0 );
@@ -4185,6 +4183,23 @@ class CampTix_Plugin {
 					if (strpos($answer,'.') === 0) { //check if "." is at beginning of checkbox value
 						$pieces = explode("$", $answer);
 						array_push($prices_array, floatval($pieces[1]));
+						
+							// now increment how many times this answer has been used
+							// first get the current values used and the question values
+							$question_values_used = get_post_meta( $question->ID, 'tix_values_used', true);
+							$question_values = get_post_meta( $question->ID, 'tix_values', true);
+							
+							// now find what the current answer index that $answer is, inside the $question by finding $answer in $question_values and looking up the index
+							$answer_index = 0;
+							for (; $answer_index < count($question_values); $answer_index++){
+								if ($question_values[$answer_index] == $answer)
+									break; // once we find the answer inside question_values, we break out of forloop (with $answer_index as the current index)
+							}
+							// increment it and update post_meta
+							$question_values_used[$answer_index]++; 
+							update_post_meta( $question->ID, 'tix_values_used', $question_values_used);	// question_values_used is incremented
+
+
 					}
 				}
 			}
