@@ -2174,6 +2174,7 @@ class CampTix_Plugin {
 		if ( is_array( $label ) )
 			$label = implode( ', ', (array) $label );
 
+
 		$key = 'tix_' . md5( $label );
 		if ( isset( $summary[ $key ] ) )
 			$summary[ $key ]['count']++;
@@ -3969,7 +3970,7 @@ class CampTix_Plugin {
 
 			usort( $questions, array( $this, 'usort_by_order' ) );
 
-			delete_post_meta( $post_id, 'tix_question_id' );
+			delete_post_meta( $post_id, 'tix_question_id' ); //deletes all questions from this ticket (don't worry, it will re-add them from the $_POST data it gets)
 			$order = array();
 
 			foreach ( $questions as $question ) {
@@ -3984,11 +3985,20 @@ class CampTix_Plugin {
 				else
 					$question_values = array();
 
+				// creates an array with a zero for each question_value (or answer) only if it doesn't already exist
+				// $question_values_used = array();
+				// $question_values_used = array_pad($question_values_used, count($question_values), 0 );
+				$question_values_used = get_post_meta( $question['post_id'], 'tix_values_used', true);
+				if( empty($question_values_used) ){
+					$question_values_used = array_fill(0, count($question_values), 0 );
+				}
+				
 				$clean_question = array(
 					'post_id' => ( isset( $question['post_id'] ) ) ? absint( $question['post_id'] ) : false,
 					'question' => wp_kses_post( $question['question'] ),
 					'type' => $question['type'],
 					'values' => $question_values,
+					'values_used' => $question_values_used, // adds how many times these question values have been used since creation (zero now since it was just created)
 					'required' => isset( $question['required'] ),
 				);
 
@@ -4025,6 +4035,9 @@ class CampTix_Plugin {
 				update_post_meta( $question_id, 'tix_values', $question['values'] );
 				update_post_meta( $question_id, 'tix_required', $question['required'] );
 				update_post_meta( $question_id, 'tix_type', $question['type'] );
+
+				// adds values_used (array of how many times each value has been used since question was created. Each index in this array corresponds to that of the question_values array) post_meta to each question.
+				update_post_meta( $question_id, 'tix_values_used', $question['values_used'] );
 
 				// Don't add duplicate questions to the ticket/order.
 				if ( in_array( $question_id, $order ) )
@@ -4149,10 +4162,25 @@ class CampTix_Plugin {
 					for ($i = 0; $i <  count($answer); $i++) {
 						if (strpos($answer[$i],'.') === 0) { //check if "." is at beginning of checkbox value
 							$pieces = explode("$", $answer[$i]);
-							array_push($prices_array, floatval($pieces[1]));
+							array_push($prices_array, floatval($pieces[1])); // extra workshop price is added
+							
+							// now increment how many times this answer has been used
+							// first get the current values used and the question values
+							$question_values_used = get_post_meta( $question->ID, 'tix_values_used', true);
+							$question_values = get_post_meta( $question->ID, 'tix_values', true);
+							
+							// now find what the current answer index that $answer is inside the $question by finding $answer in $question_values and looking up the index
+							$answer_index = 0;
+							for (; $answer_index < count($question_values); $answer_index++){
+								if ($question_values[$answer_index] == $answer[$i])
+									break; // once we find the answer inside question_values, we break out of forloop (with $answer_index as the current index)
+							}
+							// increment it and update post_meta
+							$question_values_used[$answer_index]++; 
+							update_post_meta( $question->ID, 'tix_values_used', $question_values_used);	// question_values_used is incremented
 						}
 					};
-				//because radio button answers are string rather than array, their value will be pulles differently
+				//because radio button answers are string rather than array, their value will be pulled differently
 				} else {
 					if (strpos($answer,'.') === 0) { //check if "." is at beginning of checkbox value
 						$pieces = explode("$", $answer);
@@ -4941,6 +4969,11 @@ class CampTix_Plugin {
 										<td class="<?php if ( $required ) echo 'tix-required'; ?> tix-left"><?php echo esc_html( apply_filters( 'the_title', $question->post_title ) ); ?><?php if ( $required ) echo ' <span class="tix-required-star">*</span>'; ?></td>
 										<td class="tix-right">
 											<?php do_action( "camptix_question_field_{$type}", $name, $value, $question ); ?>
+											<?php $values_used = get_post_meta( $question->ID, 'tix_values_used', true); ?>
+											<?php foreach ($values_used as $val){
+												var_dump($val); 
+											} 
+											?>
 										</td>
 									</tr>
 								<?php endforeach; ?>
