@@ -147,12 +147,42 @@ class CampTix_Plugin {
 		add_action( 'camptix_init_notify_shortcodes', array( $this, 'init_notify_shortcodes' ), 9 );
 		add_action( 'camptix_init_email_templates_shortcodes', array( $this, 'init_email_templates_shortcodes' ), 9 );
 
+		add_action( 'wp_trash_post', array( $this, 'decrement_question_values_used' ) );
+		add_action( 'wp_untrash_post', array( $this, 'increment_question_values_used' ) );
+		add_action( 'new_to_publish', array( $this, 'increment_question_values_used' ) );
+		add_action( 'new_to_draft', array( $this, 'increment_question_values_used' ) );
+
+
 		// Other things required during init.
 		$this->custom_columns();
 		$this->register_post_types();
 		$this->register_post_statuses();
 
 		do_action( 'camptix_init' );
+	}
+
+
+	function increment_question_values_used( $post_id ){
+
+    	// We check if the global post type isn't ours and just return
+    	global $post_type;   
+	    if ( $post_type != 'tix_attendee' ) {
+	    	return;
+	    }
+	    // increments the question_values_used
+		$this->change_attendee_question_values_used($post_id, 1);
+    	
+	}
+	function decrement_question_values_used( $post_id ){
+
+    	// We check if the global post type isn't ours and just return
+    	global $post_type;   
+	    if ( $post_type != 'tix_attendee' ) {
+	    	return;
+	    }
+	    // decrements the question_values_used
+		$this->change_attendee_question_values_used($post_id, -1);
+    	
 	}
 
 	/**
@@ -4138,101 +4168,19 @@ class CampTix_Plugin {
 			if ( get_post_meta( $post_id, $key, true ) )
 				$data[ $key ] = sprintf( "%s:%s", $key, maybe_serialize( get_post_meta( $post_id, $key, true ) ) );
 
-		// modifies the tix_ticket_price and the tix_order total for each attendee in the database
-		// currently they are as follows:
-		// tix_ticket_price is the original ticket price without coupons plus price modifiers like workshops
-		// tix_order_total is the ticket price minus coupon value if applies
-		
-		// first, pull the questions from the current ticket
-		$ticket_id = get_post_meta( $post_id, 'tix_ticket_id', true );
-		$questions = $this->get_sorted_questions( $ticket_id );
-		$answers = get_post_meta( $post_id, 'tix_questions', true );
-
-		// post_meta value here tells whether this attendee has been created before and that this is an update_post (so we don't increment question_values_used)
-		$already_created = get_post_meta($post_id, 'tix_already_created', true);
-		
-		// go through all possible questions for this ticket, and extract the answers that should modify the ticket price; i.e. answers that start with "."
-		$prices_array = array();
-		foreach ( $questions as $question ) {
-			if ( isset( $answers[ $question->ID ] ) ) {
-				$answer = $answers[ $question->ID ];
-				//if answer is an array then get each modifying value from the array
-				if ( is_array( $answer ) ) {
-					$answer = array_values($answer);
-					for ($i = 0; $i <  count($answer); $i++) {
-						if (strpos($answer[$i],'.') === 0) { //check if "." is at beginning of checkbox value
-							$pieces = explode("$", $answer[$i]);
-							array_push($prices_array, floatval($pieces[1])); // extra workshop price is added
-							
-							// now increment how many times this answer has been used
-							// first get the current values used and the question values
-							$question_values_used = get_post_meta( $question->ID, 'tix_values_used', true);
-							$question_values = get_post_meta( $question->ID, 'tix_values', true);
-							
-							// now find what the current answer index that $answer is inside the $question by finding $answer in $question_values and looking up the index
-							$answer_index = 0;
-							for (; $answer_index < count($question_values); $answer_index++){
-								if ($question_values[$answer_index] == $answer[$i])
-									break; // once we find the answer inside question_values, we break out of forloop (with $answer_index as the current index)
-							}
-							// increment it and update post_meta only if this is a brand new attendee
-							if(strlen($already_created) <= 0){
-								$question_values_used[$answer_index]++; 
-								update_post_meta( $question->ID, 'tix_values_used', $question_values_used);	// question_values_used is incremented
-							}
-				
-						}// end if '.' is first char
-					};
-				//because radio button answers are string rather than array, their value will be pulled differently
-				} else {
-					if (strpos($answer,'.') === 0) { //check if "." is at beginning of checkbox value
-						$pieces = explode("$", $answer);
-						array_push($prices_array, floatval($pieces[1]));
-						
-							// now increment how many times this answer has been used
-							// first get the current values used and the question values
-							$question_values_used = get_post_meta( $question->ID, 'tix_values_used', true);
-							$question_values = get_post_meta( $question->ID, 'tix_values', true);
-							
-							// now find what the current answer index that $answer is, inside the $question by finding $answer in $question_values and looking up the index
-							$answer_index = 0;
-							for (; $answer_index < count($question_values); $answer_index++){
-								if ($question_values[$answer_index] == $answer)
-									break; // once we find the answer inside question_values, we break out of forloop (with $answer_index as the current index)
-							}
-							// increment it and update post_meta only if this is a brand new attendee
-							if(strlen($already_created) <= 0){
-								$question_values_used[$answer_index]++; 
-								update_post_meta( $question->ID, 'tix_values_used', $question_values_used);	// question_values_used is incremented
-							}
-
-					}// end if '.' is first char
-				}
-			}
-		}// end foreach $questions
-
-		// indicates that this attendee post has already been created (not spanking-brand-new anymore)
-		update_post_meta($post_id, 'tix_already_created', 'created');
-
-
-		// update_post_meta( $post_id, 'tix_first_name', );
+		// increments question_values_used by +1 for answers submitted by user
+		// $this->increment_question_values_used($post_id); // already handled in hook to action save_post
+		$extra_price = $this->calculate_extra_price_from_question_values($post_id);
 
 
 		// the original prices before workshop prices are added
 		$ticket_type_id = get_post_meta ( $post_id, 'tix_ticket_id', true );
-		
 		//price of this type of ticket (without discounts or workshops)
 		$current_ticket_price = get_post_meta( $ticket_type_id, 'tix_price', true );
 		
-		// $current_ticket_price = (float) get_post_meta( $post_id, 'tix_ticket_price', true );
-
 		$discounted_ticket_price = (float) get_post_meta( $post_id, 'tix_ticket_discounted_price', true );
 
 		$current_order_total = (float) get_post_meta( $post_id, 'tix_order_total', true );
-
-		//the extra price that is added to the ticket
-		$extra_price = array_sum($prices_array);
-
 
 		// new prices after workshops are added
 		$updated_ticket_price = $current_ticket_price + $extra_price;
@@ -4244,9 +4192,6 @@ class CampTix_Plugin {
 			$updated_order_total = 0;
 		}
 		update_post_meta( $post_id, 'tix_order_total', $updated_order_total );
-
-
-
 
 
 
@@ -4268,6 +4213,122 @@ class CampTix_Plugin {
 
 		if ( isset( $_POST ) && ! empty( $_POST ) && is_admin() )
 			$this->log( 'Saved attendee post with post data.', $post_id, $_POST );
+	}
+	
+	
+	// reads the question_values for the attendee and returns the extra workshop prices
+	function calculate_extra_price_from_question_values( $post_id ){
+
+		// first, pull the questions from the current ticket
+		$ticket_id = get_post_meta( $post_id, 'tix_ticket_id', true );
+		$questions = $this->get_sorted_questions( $ticket_id );
+		$answers = get_post_meta( $post_id, 'tix_questions', true );
+
+
+		// go through all possible questions for this ticket, and extract the answers that should modify the ticket price; i.e. answers that start with "."
+		$prices_array = array();
+		foreach ( $questions as $question ) {
+			if ( isset( $answers[ $question->ID ] ) ) {
+				$answer = $answers[ $question->ID ];
+				//if answer is an array then get each modifying value from the array
+				if ( is_array( $answer ) ) {
+					$answer = array_values($answer);
+					for ($i = 0; $i <  count($answer); $i++) {
+						if (strpos($answer[$i],'.') === 0) { //check if "." is at beginning of checkbox value
+							$pieces = explode("$", $answer[$i]);
+							array_push($prices_array, floatval($pieces[1])); // extra workshop price is added
+						}// end if '.' is first char
+					};
+				//because radio button answers are string rather than array, their value will be pulled differently
+				} else {
+					if (strpos($answer,'.') === 0) { //check if "." is at beginning of checkbox value
+						$pieces = explode("$", $answer);
+						array_push($prices_array, floatval($pieces[1]));
+					}// end if '.' is first char
+				}
+			}
+		}// end foreach $questions
+
+		return array_sum($prices_array);
+	}
+	
+	// reads the current question_values supplied by attendee and adds $value_to_add to question_values_used for that queston_value (either increment or decrement)
+	function change_attendee_question_values_used( $post_id, $value_to_add ){
+		
+		// modifies the tix_ticket_price and the tix_order total for each attendee in the database
+		// currently they are as follows:
+		// tix_ticket_price is the original ticket price without coupons plus price modifiers like workshops
+		// tix_order_total is the ticket price minus coupon value if applies
+		
+		// first, pull the questions from the current ticket
+		$ticket_id = get_post_meta( $post_id, 'tix_ticket_id', true );
+		$questions = $this->get_sorted_questions( $ticket_id );
+		$answers = get_post_meta( $post_id, 'tix_questions', true );
+
+		// post_meta value here tells whether this attendee has been created before and that this is an update_post (so we don't increment question_values_used)
+		// $already_created = get_post_meta($post_id, 'tix_already_created', true);
+		
+		// go through all possible questions for this ticket, and extract the answers that should modify the ticket price; i.e. answers that start with "."
+		foreach ( $questions as $question ) {
+			if ( isset( $answers[ $question->ID ] ) ) {
+				$answer = $answers[ $question->ID ];
+				//if answer is an array then get each modifying value from the array
+				if ( is_array( $answer ) ) {
+					$answer = array_values($answer);
+					for ($i = 0; $i <  count($answer); $i++) {
+						if (strpos($answer[$i],'.') === 0) { //check if "." is at beginning of checkbox value
+
+							// now increment how many times this answer has been used
+							// first get the current values used and the question values
+							$question_values_used = get_post_meta( $question->ID, 'tix_values_used', true);
+							$question_values = get_post_meta( $question->ID, 'tix_values', true);
+							
+							// now find what the current answer index that $answer is inside the $question by finding $answer in $question_values and looking up the index
+							$answer_index = 0;
+							for (; $answer_index < count($question_values); $answer_index++){
+								if ($question_values[$answer_index] == $answer[$i])
+									break; // once we find the answer inside question_values, we break out of forloop (with $answer_index as the current index)
+							}
+							// increment it and update post_meta only if this is a brand new attendee
+							// if(strlen($already_created) <= 0){
+								$question_values_used[$answer_index]+=$value_to_add; 
+								if($question_values_used[$answer_index] < 0) 
+									$question_values_used[$answer_index] = 0;
+								update_post_meta( $question->ID, 'tix_values_used', $question_values_used);	// question_values_used is incremented
+							// }
+				
+						}// end if '.' is first char
+					};
+				//because radio button answers are string rather than array, their value will be pulled differently
+				} else {
+					if (strpos($answer,'.') === 0) { //check if "." is at beginning of checkbox value
+
+							// now increment how many times this answer has been used
+							// first get the current values used and the question values
+							$question_values_used = get_post_meta( $question->ID, 'tix_values_used', true);
+							$question_values = get_post_meta( $question->ID, 'tix_values', true);
+							
+							// now find what the current answer index that $answer is, inside the $question by finding $answer in $question_values and looking up the index
+							$answer_index = 0;
+							for (; $answer_index < count($question_values); $answer_index++){
+								if ($question_values[$answer_index] == $answer)
+									break; // once we find the answer inside question_values, we break out of forloop (with $answer_index as the current index)
+							}
+							// increment it and update post_meta only if this is a brand new attendee
+							// if(strlen($already_created) <= 0){
+								$question_values_used[$answer_index]+=$value_to_add;
+								if($question_values_used[$answer_index] < 0) 
+									$question_values_used[$answer_index] = 0;
+								update_post_meta( $question->ID, 'tix_values_used', $question_values_used);	// question_values_used is incremented
+							// }
+
+					}// end if '.' is first char
+				}
+			}
+		}// end foreach $questions
+
+		// indicates that this attendee post has already been created (not spanking-brand-new anymore)
+		// update_post_meta($post_id, 'tix_already_created', 'created');
 	}
 
 	/**
