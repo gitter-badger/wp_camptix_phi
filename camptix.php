@@ -4886,7 +4886,6 @@ class CampTix_Plugin {
 					</thead>
 					<tbody>
 						<?php $number_of_tickets = 0; ?>
-						<?php $prices_array = array(); ?>
 						<?php foreach ( $this->tickets_selected as $ticket_id => $count ) : // loops through each ticket type ?>
 							<?php
 								$ticket = $this->tickets[$ticket_id];
@@ -4907,7 +4906,6 @@ class CampTix_Plugin {
 									</td>
 									<td class="tix-column-per-ticket">
 										<?php echo $this->append_currency( $price ); ?>
-										<?php array_push($prices_array, $price); ?>
 									</td>
 									<td class="tix-column-extra-price">
 										<?php echo $this->append_currency( 0 ); //this will be changed in jQuery based on checkbox questions?> 
@@ -5004,13 +5002,15 @@ class CampTix_Plugin {
 										<td class="tix-right">
 											<?php do_action( "camptix_question_field_{$type}", $name, $value, $question ); ?>
 											<!-- i put your code in a <span> so i can hide it with js-->
-										<span>
+										<!-- <span> -->
 											<?php $values_used = get_post_meta( $question->ID, 'tix_values_used', true); ?>
 											<?php foreach ($values_used as $val){
 												var_dump($val); 
 											} 
 											?>
-										<span>
+										<!-- <span> -->
+										
+										
 										</td>
 									</tr>
 								<?php endforeach; ?>
