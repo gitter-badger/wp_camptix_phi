@@ -4619,7 +4619,16 @@ class CampTix_Plugin {
 		if ( ! isset( $_POST['tix_coupon_submit'], $_POST['tix_coupon'] ) || empty( $_POST['tix_coupon'] ) )
 			if ( isset( $this->error_flags['no_tickets_selected'] ) && isset( $_GET['tix_action'] ) && 'attendee_info' == $_GET['tix_action'] )
 				$this->error( __( 'Please select at least one ticket.', 'camptix' ) );
-
+		//this is the error that we probably need to replicate for each question that has number limits
+		//however instead of going back to the tickets select page, it should go back to the form and remove his choice to that question and make it disabled
+		//something like the error in payemnt below
+		//to do that we will likely to do the same as the js code in the backend to check first what is the limit to each option by going through
+		//the answers in the selected tickets, then calculating again how many are remaining (so if someone completed a purchase while this guy is still
+		//filling the form it will be counted) then calculate the remaining for each option
+		//next step is to count how many did the current user select for each option, if he selected more than the remaining for any answer option, we should
+		//give an error message as described above. the message should state what the problem was exactly, so the user knows what he needs to change
+		//the reason why i think this is necessary is in the case of workshops or lunches or sth that costs alot of money and the seats are really limited. 
+		//if the system allowed extra people to register, then the organizer will be in trouble and put us in trouble.
 		if ( isset( $_GET['tix_action'] ) && 'checkout' == $_GET['tix_action'] && isset( $this->error_flags['no_tickets_selected'] ) )
 			$this->error( __( 'It looks like somebody took that last ticket before you, sorry! You try a different ticket.', 'camptix' ) );
 
@@ -4984,11 +4993,14 @@ class CampTix_Plugin {
 										<td class="<?php if ( $required ) echo 'tix-required'; ?> tix-left"><?php echo esc_html( apply_filters( 'the_title', $question->post_title ) ); ?><?php if ( $required ) echo ' <span class="tix-required-star">*</span>'; ?></td>
 										<td class="tix-right">
 											<?php do_action( "camptix_question_field_{$type}", $name, $value, $question ); ?>
+											<!-- i put your code in a <span> so i can hide it with js-->
+										<span>
 											<?php $values_used = get_post_meta( $question->ID, 'tix_values_used', true); ?>
 											<?php foreach ($values_used as $val){
 												var_dump($val); 
 											} 
 											?>
+										<span>
 										</td>
 									</tr>
 								<?php endforeach; ?>

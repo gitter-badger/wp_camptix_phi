@@ -25,6 +25,26 @@
 																								<br class="tix-clear">';
 
 
+// this hides all the integers
+$(".tix-attendee-form td span").css("display" , "none");
+//to disable a checkbox or a radio button
+//$("input.group1").attr("disabled", true);
+//use this to split contents of <span>
+//string=str.split(" ");
+//use this to get the number used for each answer option
+//String=str.substring(str.lastIndexOf("(")+1,str.lastIndexOf(")"));
+//use this to get all the inputs of a question into an array
+//
+//then get their values and get the total quantity
+//
+//then subtract the used from the total quantity
+//then check if the remaing of a type is 0 then disable the answer option
+//watch out for an issue when the remaining for some options is less than the selected number of tickets for this purchase
+//will need to disable option for later attendee
+//there remains the issue of when an option has 1 available only, and two users start filling the form, and both of them can select the option
+//because it hasn't been reserved yet for any of them, then we will end up with surplus of attendees for that particular session
+//possible walkaround for this will be to use some code from camptix; if i remember well it was "sorry! the last ticket has been purchased/reserved" this shows up when
+//the user submits the form. i think it checks again when you submit, for if there are any remaining tickets (maybe someone filled the form faster than you)
 
 
 	//this updates the order summary table with checked checkbox prices each time the pages loads like if there is an error when the user submits the form
