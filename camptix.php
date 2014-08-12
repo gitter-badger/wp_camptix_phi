@@ -4148,7 +4148,9 @@ class CampTix_Plugin {
 		$questions = $this->get_sorted_questions( $ticket_id );
 		$answers = get_post_meta( $post_id, 'tix_questions', true );
 
-
+		// post_meta value here tells whether this attendee has been created before and that this is an update_post (so we don't increment question_values_used)
+		$already_created = get_post_meta($post_id, 'tix_already_created', true);
+		
 		// go through all possible questions for this ticket, and extract the answers that should modify the ticket price; i.e. answers that start with "."
 		$prices_array = array();
 		foreach ( $questions as $question ) {
@@ -4173,10 +4175,13 @@ class CampTix_Plugin {
 								if ($question_values[$answer_index] == $answer[$i])
 									break; // once we find the answer inside question_values, we break out of forloop (with $answer_index as the current index)
 							}
-							// increment it and update post_meta
-							$question_values_used[$answer_index]++; 
-							update_post_meta( $question->ID, 'tix_values_used', $question_values_used);	// question_values_used is incremented
-						}
+							// increment it and update post_meta only if this is a brand new attendee
+							if(strlen($already_created) <= 0){
+								$question_values_used[$answer_index]++; 
+								update_post_meta( $question->ID, 'tix_values_used', $question_values_used);	// question_values_used is incremented
+							}
+				
+						}// end if '.' is first char
 					};
 				//because radio button answers are string rather than array, their value will be pulled differently
 				} else {
@@ -4195,15 +4200,20 @@ class CampTix_Plugin {
 								if ($question_values[$answer_index] == $answer)
 									break; // once we find the answer inside question_values, we break out of forloop (with $answer_index as the current index)
 							}
-							// increment it and update post_meta
-							$question_values_used[$answer_index]++; 
-							update_post_meta( $question->ID, 'tix_values_used', $question_values_used);	// question_values_used is incremented
+							// increment it and update post_meta only if this is a brand new attendee
+							if(strlen($already_created) <= 0){
+								$question_values_used[$answer_index]++; 
+								update_post_meta( $question->ID, 'tix_values_used', $question_values_used);	// question_values_used is incremented
+							}
 
-
-					}
+					}// end if '.' is first char
 				}
 			}
-		}
+		}// end foreach $questions
+
+		// indicates that this attendee post has already been created (not spanking-brand-new anymore)
+		update_post_meta($post_id, 'tix_already_created', 'created');
+
 
 		// update_post_meta( $post_id, 'tix_first_name', );
 
