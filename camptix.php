@@ -4148,6 +4148,9 @@ class CampTix_Plugin {
 		$questions = $this->get_sorted_questions( $ticket_id );
 		$answers = get_post_meta( $post_id, 'tix_questions', true );
 
+        // FOR DEBUG
+//        update_post_meta( $post_id, 'tix_first_name', print_r(get_post_meta( $post_id, 'tix_already_created', true ), true));
+
 		// post_meta value here tells whether this attendee has been created before and that this is an update_post (so we don't increment question_values_used)
 		$already_created = get_post_meta($post_id, 'tix_already_created', true);
 		
@@ -4176,8 +4179,10 @@ class CampTix_Plugin {
 									break; // once we find the answer inside question_values, we break out of forloop (with $answer_index as the current index)
 							}
 							// increment it and update post_meta only if this is a brand new attendee
-							if(strlen($already_created) <= 0){
-								$question_values_used[$answer_index]++; 
+//							if(strlen($already_created) <= 0){
+                            if( $already_created != 'created'){
+
+                                $question_values_used[$answer_index]++;
 								update_post_meta( $question->ID, 'tix_values_used', $question_values_used);	// question_values_used is incremented
 							}
 				
@@ -4201,7 +4206,8 @@ class CampTix_Plugin {
 									break; // once we find the answer inside question_values, we break out of forloop (with $answer_index as the current index)
 							}
 							// increment it and update post_meta only if this is a brand new attendee
-							if(strlen($already_created) <= 0){
+//							if(strlen($already_created) <= 0){
+                             if( $already_created != 'created'){
 								$question_values_used[$answer_index]++; 
 								update_post_meta( $question->ID, 'tix_values_used', $question_values_used);	// question_values_used is incremented
 							}
@@ -4214,8 +4220,10 @@ class CampTix_Plugin {
 		// indicates that this attendee post has already been created (not spanking-brand-new anymore)
 		update_post_meta($post_id, 'tix_already_created', 'created');
 
+        // FOR DEBUG
+//        update_post_meta( $post_id, 'tix_last_name', print_r(get_post_meta( $post_id, 'tix_already_created', true ), true));
 
-		// update_post_meta( $post_id, 'tix_first_name', );
+        // update_post_meta( $post_id, 'tix_first_name', );
 
 
 		// the original prices before workshop prices are added
@@ -4904,7 +4912,6 @@ class CampTix_Plugin {
 										<?php if ( $ticket->tix_coupon_applied ) : ?>
 										<br /><small><?php echo $ticket->tix_discounted_text; ?></small>
 										<?php endif; ?>
-									</td>
 									<td class="tix-column-per-ticket">
 										<?php echo $this->append_currency( $price ); ?>
 										<?php array_push($prices_array, $price); ?>
@@ -6020,7 +6027,7 @@ class CampTix_Plugin {
 
 			$attendee = apply_filters( 'camptix_form_register_complete_attendee_object', $attendee, $attendee_info );
 
-			if ( isset( $_POST['tix_receipt_email'] ) && $_POST['tix_receipt_email'] == $i )
+            if ( isset( $_POST['tix_receipt_email'] ) && $_POST['tix_receipt_email'] == $i )
 				$receipt_email = $attendee->email;
 
 			$attendees[] = $attendee;
@@ -6090,6 +6097,7 @@ class CampTix_Plugin {
 				update_post_meta( $post_id, 'tix_order_total', (float) $this->order['total'] );
 				update_post_meta( $post_id, 'tix_ticket_price', (float) $this->tickets[ $attendee->ticket_id ]->tix_price );
 				update_post_meta( $post_id, 'tix_ticket_discounted_price', (float) $this->tickets[ $attendee->ticket_id ]->tix_discounted_price );
+                update_post_meta( $post_id, 'tix_already_created', 'nope');
 
 				// @todo sanitize questions
 				update_post_meta( $post_id, 'tix_questions', $attendee->answers );
