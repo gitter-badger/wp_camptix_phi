@@ -147,11 +147,14 @@ class CampTix_Plugin {
 		add_action( 'camptix_init_notify_shortcodes', array( $this, 'init_notify_shortcodes' ), 9 );
 		add_action( 'camptix_init_email_templates_shortcodes', array( $this, 'init_email_templates_shortcodes' ), 9 );
 
-		add_action( 'wp_trash_post', array( $this, 'decrement_question_values_used' ) );
+		// add_action( 'wp_trash_post', array( $this, 'decrement_question_values_used' ) );
 		add_action( 'wp_untrash_post', array( $this, 'increment_question_values_used' ) );
-		add_action( 'new_to_publish', array( $this, 'increment_question_values_used' ) );
-		add_action( 'new_to_draft', array( $this, 'increment_question_values_used' ) );
+		// add_action( 'new_to_publish', array( $this, 'increment_question_values_used' ) );
+		// add_action( 'new_to_draft', array( $this, 'increment_question_values_used' ) );
+		// add_action( 'draft_attendee', array( $this, 'increment_question_values_used' ) );
+		// add_action('pre_post_update', array( $this, 'decrement_question_values_used' ) );
 
+		// add_action(  'transition_post_status',  array( $this, 'on_all_status_transitions' ), 1, 3 );
 
 		// Other things required during init.
 		$this->custom_columns();
@@ -162,24 +165,60 @@ class CampTix_Plugin {
 	}
 
 
+	function update_question_values_used( $post_id ){
+
+		$status = get_post_status( $post_id );
+
+		// if($status == 'draft')
+
+		// post_meta value here tells whether this attendee has been created before and that this is an update_post (so we don't increment question_values_used)
+		// $already_created = get_post_meta($post_id, 'tix_already_created', true);
+
+
+		if($status == 'trash'){
+			$this->decrement_question_values_used($post_id);
+		}else if($status == 'draft'/* && $already_created != 'created'*/){
+			$this->increment_question_values_used($post_id);	
+		}
+
+		// indicates that this attendee post has already been created (not spanking-brand-new anymore)
+		// update_post_meta($post_id, 'tix_already_created', 'created');
+
+	}
+
+	// function on_all_status_transitions( $new_status, $old_status, $post ) {
+
+	//     // die("old_status is $old_status and new_status is $new_status for post_id $post->ID");
+
+
+	//     // if ( $new_status == $old_status || $post->post_type != 'tix_attendee' ) {
+	//     // 	return;
+	//     // }
+
+	//     // if ( $old_status == $new_status && ($old_status == 'draft' || $old_status == 'publish') )
+	//     	// $this->decrement_question_values_used( $post->ID );
+
+ //    	// if ( $old_status == 'new' || $old_status == 'trash' /*&& ($new_status == 'draft' || $new_status == 'publish') */ ) {
+ //    	// 	$this->increment_question_values_used( $post->ID );
+ //    	// 	// die("transition from new! post_id is $post->ID. vardump: " . var_dump($post));
+ //    	// }else 
+ //    	if( /*($old_status == 'draft' || $old_status == 'publish') &&*/ $new_status == 'trash' ){
+ //    		$this->decrement_question_values_used( $post->ID );
+	// 		// die("transition to trash! post_id is $post->ID");
+ //    	}
+
+ //    	// die("some transition on post_id: " . $post->ID);
+
+	// }
+
 	function increment_question_values_used( $post_id ){
 
-    	// We check if the global post type isn't ours and just return
-    	global $post_type;   
-	    if ( $post_type != 'tix_attendee' ) {
-	    	return;
-	    }
 	    // increments the question_values_used
 		$this->change_attendee_question_values_used($post_id, 1);
     	
 	}
 	function decrement_question_values_used( $post_id ){
 
-    	// We check if the global post type isn't ours and just return
-    	global $post_type;   
-	    if ( $post_type != 'tix_attendee' ) {
-	    	return;
-	    }
 	    // decrements the question_values_used
 		$this->change_attendee_question_values_used($post_id, -1);
     	
@@ -4169,7 +4208,10 @@ class CampTix_Plugin {
 				$data[ $key ] = sprintf( "%s:%s", $key, maybe_serialize( get_post_meta( $post_id, $key, true ) ) );
 
 		// increments question_values_used by +1 for answers submitted by user
-		// $this->increment_question_values_used($post_id); // already handled in hook to action save_post
+		$this->update_question_values_used($post_id);
+		// if(get_post_status($post_id) == 'draft')
+		// 	$this->increment_question_values_used($post_id); // already handled in hook to action save_post
+		
 		$extra_price = $this->calculate_extra_price_from_question_values($post_id);
 
 
@@ -4255,19 +4297,20 @@ class CampTix_Plugin {
 	// reads the current question_values supplied by attendee and adds $value_to_add to question_values_used for that queston_value (either increment or decrement)
 	function change_attendee_question_values_used( $post_id, $value_to_add ){
 		
+		// die("change_attendee_question_values_used! post_id $post_id and value_to_add $value_to_add!");
 		// modifies the tix_ticket_price and the tix_order total for each attendee in the database
 		// currently they are as follows:
 		// tix_ticket_price is the original ticket price without coupons plus price modifiers like workshops
 		// tix_order_total is the ticket price minus coupon value if applies
-		
-		// first, pull the questions from the current ticket
+
 		$ticket_id = get_post_meta( $post_id, 'tix_ticket_id', true );
+		// if(!$ticket_id)
+			// die("inside change_attendee_question_values_used, ticket_id is not set $ticket_id " . var_dump(get_post($post_id)));
+	
 		$questions = $this->get_sorted_questions( $ticket_id );
 		$answers = get_post_meta( $post_id, 'tix_questions', true );
 
-		// post_meta value here tells whether this attendee has been created before and that this is an update_post (so we don't increment question_values_used)
-		// $already_created = get_post_meta($post_id, 'tix_already_created', true);
-		
+
 		// go through all possible questions for this ticket, and extract the answers that should modify the ticket price; i.e. answers that start with "."
 		foreach ( $questions as $question ) {
 			if ( isset( $answers[ $question->ID ] ) ) {
@@ -4290,12 +4333,10 @@ class CampTix_Plugin {
 									break; // once we find the answer inside question_values, we break out of forloop (with $answer_index as the current index)
 							}
 							// increment it and update post_meta only if this is a brand new attendee
-							// if(strlen($already_created) <= 0){
 								$question_values_used[$answer_index]+=$value_to_add; 
 								if($question_values_used[$answer_index] < 0) 
 									$question_values_used[$answer_index] = 0;
 								update_post_meta( $question->ID, 'tix_values_used', $question_values_used);	// question_values_used is incremented
-							// }
 				
 						}// end if '.' is first char
 					};
@@ -4327,8 +4368,6 @@ class CampTix_Plugin {
 			}
 		}// end foreach $questions
 
-		// indicates that this attendee post has already been created (not spanking-brand-new anymore)
-		// update_post_meta($post_id, 'tix_already_created', 'created');
 	}
 
 	/**
