@@ -25,27 +25,45 @@
 																								<br class="tix-clear">';
 
 
-// this hides all the integers
-$(".tix-attendee-form td span").css("display" , "none");
-//to disable a checkbox or a radio button
-//$("input.group1").attr("disabled", true);
-//use this to split contents of <span>
-//string=str.split(" ");
-//use this to get the number used for each answer option
-//String=str.substring(str.lastIndexOf("(")+1,str.lastIndexOf(")"));
-//use this to get all the inputs of a question into an array
-//
-//then get their values and get the total quantity
-//
-//then subtract the used from the total quantity
-//then check if the remaing of a type is 0 then disable the answer option
-//watch out for an issue when the remaining for some options is less than the selected number of tickets for this purchase
-//will need to disable option for later attendee
-//there remains the issue of when an option has 1 available only, and two users start filling the form, and both of them can select the option
-//because it hasn't been reserved yet for any of them, then we will end up with surplus of attendees for that particular session
-//possible walkaround for this will be to use some code from camptix; if i remember well it was "sorry! the last ticket has been purchased/reserved" this shows up when
-//the user submits the form. i think it checks again when you submit, for if there are any remaining tickets (maybe someone filled the form faster than you)
+	// this hides all the used workshops values
+	//$(".tix-attendee-form td > span").css("display" , "none");
 
+	var value = "";
+	var remaining = "";
+	update_remaining()
+		
+	function	update_remaining() {
+		$(".tix-attendee-form input[type='checkbox'], .tix-attendee-form input[type='radio']").each(function(){
+		var answer = $(this).attr("value");
+		value = answer;
+			if (answer.indexOf('Remaining:') > -1) {
+				var index = $(this).parent().index()
+				if (index > 0) {
+					index = index/2;
+				}
+				var all_used = $(this).parent().siblings("span").html().replace("<span>", "").replace("</span>", "").split(")");
+				for (var i = 0; i < all_used.length; i++) {
+					all_used[i] = all_used[i].replace("int(", "");
+					all_used[i] = parseInt(all_used[i]);
+				}
+
+				var all = answer.substring(answer.lastIndexOf(" ")+1 , answer.lastIndexOf(")"));
+				all = parseInt(all);
+				
+				var each_remaining = all - all_used[index];
+
+				answer = answer.substring(0 , answer.lastIndexOf(" ")+1);
+				answer = answer + each_remaining + ")";
+				$(this).attr("value" , answer);
+				$(this).next().html(" " + answer);
+			 if (each_remaining <= 0) {
+					$(this).attr("disabled", true);
+				} else {
+					$(this).attr("disabled", false);
+				}
+			};
+		})
+	}
 
 	//this updates the order summary table with checked checkbox prices each time the pages loads like if there is an error when the user submits the form
 	var rows = $(".tix-order-summary tbody").children().length - 1;
@@ -90,18 +108,27 @@ $(".tix-attendee-form td span").css("display" , "none");
 	});
 
 	$(".tix-attendee-form input[type='radio']").on("click" , function(){
-		var $radio = $(this);
+		var radio = $(this);
 		
+		radio.parent().siblings().find('input[type="radio"]').each(function(){
+			if ($(this).data("waschecked") === true) {
+				check_update_remaining( $(this) );
+			}
+		});
+
+
 		// if this was previously checked
-		if ($radio.data('waschecked') === true) {
-			$radio.prop('checked', false);
-			$radio.data('waschecked', false);
+		if (radio.data('waschecked') === true) {
+			radio.attr("checked" , false)
+			radio.data('waschecked', false);
 		} else {
-			$radio.data('waschecked', true);
+			radio.data('waschecked', true);
 		}
 		update_prices( $(this) );
 		// remove was checked from other radios
-		$radio.parent().siblings().children('input[type="radio"]').data('waschecked', false);
+		radio.parent().siblings().children('input[type="radio"]').data('waschecked', false);
+		check_update_remaining( $(this) );
+
 	});
 
 	function update_prices(e){
@@ -179,8 +206,79 @@ $(".tix-attendee-form td span").css("display" , "none");
 	};
 
 	$(".tix-attendee-form input[type='checkbox']").change(function(){
+			
 		 checkbox_update_prices( $(this) );
+			checkbox_maximum_select( $(this) );
+			check_update_remaining( $(this) );
 	});
+
+//this funciton checks and updates the remaing of each checkbox that has a remaining
+//it changes the value and label of all the same checkboxes with the remaining
+//remaining is defined here and is converted to integer inside the function to be used in disable_not_remaining()
+	function check_update_remaining(e){
+		var answer = e.attr("value");
+		value = answer;
+		if (answer.indexOf('Remaining:') > -1) {
+			remaining = answer.substring(answer.lastIndexOf(" ")+1 , answer.lastIndexOf(")"));
+			answer = answer.substring(0 , answer.lastIndexOf(" ")+1);
+			remaining = parseInt(remaining);
+			var checked = false;
+			if (e.attr("checked")) {
+				remaining = remaining - 1;
+				checked = true;
+			} else {
+				remaining = remaining + 1;
+				checked = false;
+			}
+			var new_answer = answer + remaining + ")";
+			$(".tix-attendee-form").find("input[type='checkbox'], input[type='radio']").each(function(){
+				if ($(this).attr("value") == value) {
+					$(this).attr("value" , new_answer);
+					$(this).next().html(" " + new_answer);
+				};
+			});
+		value = new_answer;
+	 disable_not_remaining(e);
+		};
+
+ };
+
+//this function disables checkboxes based on the remaining
+ function disable_not_remaining(e) {
+ 		e.parents(".tix-attendee-form").siblings(".tix-attendee-form").each(function(){
+				$(this).find("input[type='checkbox'], input[type='radio']").each(function(){
+					if ($(this).attr("value") == value) {
+					 if (remaining <= 0) {
+							$(this).attr("disabled", true);
+						} else {
+							$(this).attr("disabled", false);
+						}
+			 	}
+				});
+ 		});
+ }
+
+
+//for this to work the question name has to have "(Maximum: int)" in it where int is the maximum checkboxes a user can select for that question
+	function checkbox_maximum_select(e){
+		var question = e.parents("td").siblings().html()
+		if (question.indexOf('Maximum') > -1) {
+			question = question.split(" <");
+			var limit = question[0].substring(question[0].lastIndexOf(" ")+1 , question[0].lastIndexOf(")"));
+			limit = parseInt( limit );
+			var number_of_checked = 0;
+		 e.parent().siblings().find("input[type='checkbox']:checked").each(function(){
+		 	number_of_checked = number_of_checked + 1;
+		 });
+	  if(number_of_checked >= limit) {
+				if (e.attr("checked")) {
+		   e.attr("checked" , false);
+					check_update_remaining( $(this) );
+				};
+	  };
+		};
+	};
+
 
 	function checkbox_update_prices(e){
 	 var checkbox_price = e.attr("value");
