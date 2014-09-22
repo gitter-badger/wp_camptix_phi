@@ -148,13 +148,14 @@ class CampTix_Plugin {
 		add_action( 'camptix_init_email_templates_shortcodes', array( $this, 'init_email_templates_shortcodes' ), 9 );
 
 		// add_action( 'wp_trash_post', array( $this, 'decrement_question_values_used' ) );
-		add_action( 'wp_untrash_post', array( $this, 'increment_question_values_used' ) );
+		add_action( 'untrashed_post', array( $this, 'mark_attendee_undeleted' ) );
 		// add_action( 'new_to_publish', array( $this, 'increment_question_values_used' ) );
 		// add_action( 'new_to_draft', array( $this, 'increment_question_values_used' ) );
 		// add_action( 'draft_attendee', array( $this, 'increment_question_values_used' ) );
-		// add_action('pre_post_update', array( $this, 'decrement_question_values_used' ) );
+		
+		// add_action('post_updated', array( $this, 'on_all_status_transitions_two' ) );
 
-		// add_action(  'transition_post_status',  array( $this, 'on_all_status_transitions' ), 1, 3 );
+		add_action(  'transition_post_status',  array( $this, 'on_all_status_transitions' ), 1, 3 );
 
 		// Other things required during init.
 		$this->custom_columns();
@@ -165,6 +166,22 @@ class CampTix_Plugin {
 	}
 
 
+	// THE PROBLEM is that this is called before transition
+	function mark_attendee_undeleted( $post_id ){
+		update_post_meta( $post_id, 'tix_deleted_attendee', 'old');
+		$deleted_meta = get_post_meta( $post_id, 'tix_deleted_attendee', true );
+
+		$transition_counter = get_post_meta( $post->ID, 'tix_transition_counter', true );
+		if( (int) $transition_counter <= 0)
+			$transition_counter = 0;
+		$transition_counter++;
+		update_post_meta( $post->ID, 'tix_transition_counter', $transition_counter);
+		update_post_meta( $post->ID, 'tix_email', $transition_counter);
+		if( ($transition_counter % 2) == 0 )
+			$this->increment_question_values_used( $post_id );
+		// die("post_id $post_id and deleted_meta $deleted_meta");
+	}
+
 	function update_question_values_used( $post_id ){
 
 		$status = get_post_status( $post_id );
@@ -172,17 +189,72 @@ class CampTix_Plugin {
 		// if($status == 'draft')
 
 		// post_meta value here tells whether this attendee has been created before and that this is an update_post (so we don't increment question_values_used)
-		// $already_created = get_post_meta($post_id, 'tix_already_created', true);
+		$already_created = get_post_meta($post_id, 'tix_already_created', true);
 
 
 		if($status == 'trash'){
+			// die("trash!");
 			$this->decrement_question_values_used($post_id);
+			update_post_meta( $post_id, 'tix_deleted_attendee', 'deleted');
 		}else if($status == 'draft'/* && $already_created != 'created'*/){
+			// die("draft!");
 			$this->increment_question_values_used($post_id);	
+			if( $already_created != 'created')
+				update_post_meta( $post_id, 'tix_deleted_attendee', 'new');
+			else
+				update_post_meta( $post_id, 'tix_deleted_attendee', 'old');
+
 		}
 
 		// indicates that this attendee post has already been created (not spanking-brand-new anymore)
-		// update_post_meta($post_id, 'tix_already_created', 'created');
+		update_post_meta($post_id, 'tix_already_created', 'created');
+
+	}
+
+
+	function on_all_status_transitions_two( $post_id, $post_after, $post_before ) {
+		
+		$deleted_meta = get_post_meta( $post->ID, 'tix_deleted_attendee', true );
+		// this catches editing, we dont want to catch untrashing
+		if ( $deleted_meta != 'deleted' && $new_status == $old_status && ($new_status == 'draft' || $new_status == 'publish') /*&& $post->post_type != 'tix_attendee' */) {
+			
+
+			// HOWEVER, this hook is called twice on editing, so we must find a way to only call decrement once
+			$this->decrement_question_values_used($post->ID);
+
+			die("decrement " . $post->ID . " new_status $new_status and old_status $old_status and deleted_meta $deleted_meta");
+	    }
+
+	}
+
+	// WHEN UNTRASHING, OLD STATUS IS SAME AS NEW STATUS!!! WTF?! I HATE WORDPRESS!!!
+
+	function on_all_status_transitions( $new_status, $old_status, $post ) {
+		
+
+		$transition_counter = get_post_meta( $post->ID, 'tix_transition_counter', true );
+		if( (int) $transition_counter <= 0)
+			$transition_counter = 0;
+		$transition_counter++;
+		update_post_meta( $post->ID, 'tix_transition_counter', $transition_counter);
+		update_post_meta( $post->ID, 'tix_email', $transition_counter);
+			
+		$deleted_meta = get_post_meta( $post->ID, 'tix_deleted_attendee', true );
+
+		// if ( ($transition_counter % 2) == 0 *//*&& $deleted_meta != 'new' *//*&& $deleted_meta != 'deleted' && $new_status == $old_status && ($new_status == 'draft' || $new_status == 'publish') /*&& $post->post_type != 'tix_attendee' */) 
+			// die("decrement " . $post->ID . " new_status $new_status and old_status $old_status and deleted_meta $deleted_meta and transition_counter $transition_counter");
+
+
+		// this catches editing, we dont want to catch untrashing
+
+		if ( ($transition_counter % 2) == 1 && $deleted_meta == 'old' /*&& $deleted_meta != 'deleted'*/ && $new_status == $old_status && ($new_status == 'draft' || $new_status == 'publish') /*&& $post->post_type != 'tix_attendee' */) {
+			
+
+			// HOWEVER, this hook is called twice on editing, so we must find a way to only call decrement once
+			$this->decrement_question_values_used($post->ID);
+
+			// die("decrement " . $post->ID . " new_status $new_status and old_status $old_status and deleted_meta $deleted_meta and transition_counter $transition_counter");
+	    }
 
 	}
 
@@ -217,12 +289,22 @@ class CampTix_Plugin {
 		$this->change_attendee_question_values_used($post_id, 1);
     	
 	}
+
+
+	// function increment_question_values_used_twice( $post_id ){
+
+	//     // increments the question_values_used
+	// 	$this->change_attendee_question_values_used($post_id, 1);
+	// 	$this->change_attendee_question_values_used($post_id, 1);
+
+    	
+	// }
+
 	function decrement_question_values_used( $post_id ){
 
 	    // decrements the question_values_used
 		$this->change_attendee_question_values_used($post_id, -1);
-    	
-	}
+   	}
 
 	/**
 	 * Scheduled events, mainly around e-mail jobs, runs during file load.
@@ -4207,6 +4289,11 @@ class CampTix_Plugin {
 			if ( get_post_meta( $post_id, $key, true ) )
 				$data[ $key ] = sprintf( "%s:%s", $key, maybe_serialize( get_post_meta( $post_id, $key, true ) ) );
 
+
+
+		// remove_action( 'transition_post_status',  array( $this, 'on_all_status_transitions' ) );
+
+			// die("die inside save_attendee_post! $post_id");
 		// increments question_values_used by +1 for answers submitted by user
 		$this->update_question_values_used($post_id);
 		// if(get_post_status($post_id) == 'draft')
@@ -4252,6 +4339,7 @@ class CampTix_Plugin {
 
 		// There might be others in need of processing.
 		add_action( 'save_post', array( $this, __FUNCTION__ ) );
+		// add_action( 'transition_post_status',  array( $this, 'on_all_status_transitions' ) );
 
 		if ( isset( $_POST ) && ! empty( $_POST ) && is_admin() )
 			$this->log( 'Saved attendee post with post data.', $post_id, $_POST );
