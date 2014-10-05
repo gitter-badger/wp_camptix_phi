@@ -148,13 +148,11 @@ class CampTix_Plugin {
 		add_action( 'camptix_init_email_templates_shortcodes', array( $this, 'init_email_templates_shortcodes' ), 9 );
 
 		// add_action( 'wp_trash_post', array( $this, 'decrement_question_values_used' ) );
-		add_action( 'untrashed_post', array( $this, 'mark_attendee_undeleted' ) );
+		add_action( 'untrashed_post', array( $this, 'on_untrash_attendee' ) );
 		// add_action( 'new_to_publish', array( $this, 'increment_question_values_used' ) );
 		// add_action( 'new_to_draft', array( $this, 'increment_question_values_used' ) );
 		// add_action( 'draft_attendee', array( $this, 'increment_question_values_used' ) );
 		
-		// add_action('post_updated', array( $this, 'on_all_status_transitions_two' ) );
-
 		add_action(  'transition_post_status',  array( $this, 'on_all_status_transitions' ), 1, 3 );
 
 		// Other things required during init.
@@ -166,10 +164,15 @@ class CampTix_Plugin {
 	}
 
 
-	// THE PROBLEM is that this is called before transition
-	function mark_attendee_undeleted( $post_id ){
+	// function that takes care of incrementing question_values for attendees
+	// NOTE: this function is called twice because the untrashed_post hook is triggered twice
+	function on_untrash_attendee( $post_id ){
 		update_post_meta( $post_id, 'tix_deleted_attendee', 'old');
 		$deleted_meta = get_post_meta( $post_id, 'tix_deleted_attendee', true );
+
+
+		// a transition counter is used because the calling code (transition status) is called twice,
+		// and we only want to call this code once so we keep count of transition calls and use modulus two
 
 		$transition_counter = get_post_meta( $post->ID, 'tix_transition_counter', true );
 		if( (int) $transition_counter <= 0)
@@ -179,29 +182,29 @@ class CampTix_Plugin {
 		update_post_meta( $post->ID, 'tix_email', $transition_counter);
 		if( ($transition_counter % 2) == 0 )
 			$this->increment_question_values_used( $post_id );
-		// die("post_id $post_id and deleted_meta $deleted_meta");
 	}
 
+	// this function is called inside save_attendee_post (inside save_post whenever a post is updated or saved)
+	// it takes care of incrementing or decrementing question_values based on answers in attendee post
 	function update_question_values_used( $post_id ){
 
 		$status = get_post_status( $post_id );
-
-		// if($status == 'draft')
 
 		// post_meta value here tells whether this attendee has been created before and that this is an update_post (so we don't increment question_values_used)
 		$already_created = get_post_meta($post_id, 'tix_already_created', true);
 
 
+		// if post_status is now trash, then decrement question_values 
 		if($status == 'trash'){
-			// die("trash!");
 			$this->decrement_question_values_used($post_id);
-			update_post_meta( $post_id, 'tix_deleted_attendee', 'deleted');
-		}else if($status == 'draft'/* && $already_created != 'created'*/){
-			// die("draft!");
+			update_post_meta( $post_id, 'tix_deleted_attendee', 'deleted'); // mark this attendee as deleted so that on_all_status_transition doesn't increment it
+		
+		// if post_status is now draft, then increment question_values
+		}else if($status == 'draft'){
 			$this->increment_question_values_used($post_id);	
-			if( $already_created != 'created')
+			if( $already_created != 'created') //if this is the first time this attendee gets created, then mark it as new
 				update_post_meta( $post_id, 'tix_deleted_attendee', 'new');
-			else
+			else // else mark it as old
 				update_post_meta( $post_id, 'tix_deleted_attendee', 'old');
 
 		}
@@ -211,24 +214,6 @@ class CampTix_Plugin {
 
 	}
 
-
-	function on_all_status_transitions_two( $post_id, $post_after, $post_before ) {
-		
-		$deleted_meta = get_post_meta( $post->ID, 'tix_deleted_attendee', true );
-		// this catches editing, we dont want to catch untrashing
-		if ( $deleted_meta != 'deleted' && $new_status == $old_status && ($new_status == 'draft' || $new_status == 'publish') /*&& $post->post_type != 'tix_attendee' */) {
-			
-
-			// HOWEVER, this hook is called twice on editing, so we must find a way to only call decrement once
-			$this->decrement_question_values_used($post->ID);
-
-			die("decrement " . $post->ID . " new_status $new_status and old_status $old_status and deleted_meta $deleted_meta");
-	    }
-
-	}
-
-	// WHEN UNTRASHING, OLD STATUS IS SAME AS NEW STATUS!!! WTF?! I HATE WORDPRESS!!!
-
 	function on_all_status_transitions( $new_status, $old_status, $post ) {
 		
 
@@ -237,51 +222,16 @@ class CampTix_Plugin {
 			$transition_counter = 0;
 		$transition_counter++;
 		update_post_meta( $post->ID, 'tix_transition_counter', $transition_counter);
-		update_post_meta( $post->ID, 'tix_email', $transition_counter);
 			
 		$deleted_meta = get_post_meta( $post->ID, 'tix_deleted_attendee', true );
 
-		// if ( ($transition_counter % 2) == 0 *//*&& $deleted_meta != 'new' *//*&& $deleted_meta != 'deleted' && $new_status == $old_status && ($new_status == 'draft' || $new_status == 'publish') /*&& $post->post_type != 'tix_attendee' */) 
-			// die("decrement " . $post->ID . " new_status $new_status and old_status $old_status and deleted_meta $deleted_meta and transition_counter $transition_counter");
-
-
 		// this catches editing, we dont want to catch untrashing
-
-		if ( ($transition_counter % 2) == 1 && $deleted_meta == 'old' /*&& $deleted_meta != 'deleted'*/ && $new_status == $old_status && ($new_status == 'draft' || $new_status == 'publish') /*&& $post->post_type != 'tix_attendee' */) {
-			
-
-			// HOWEVER, this hook is called twice on editing, so we must find a way to only call decrement once
+		// HOWEVER, this hook is called twice on editing, so we use modulus on transition_counter to only call decrement once
+		if ( ($transition_counter % 2) == 1 && $deleted_meta == 'old' && $new_status == $old_status && ($new_status == 'draft' || $new_status == 'publish') /*&& $post->post_type != 'tix_attendee' */) {
 			$this->decrement_question_values_used($post->ID);
-
-			// die("decrement " . $post->ID . " new_status $new_status and old_status $old_status and deleted_meta $deleted_meta and transition_counter $transition_counter");
 	    }
 
 	}
-
-	// function on_all_status_transitions( $new_status, $old_status, $post ) {
-
-	//     // die("old_status is $old_status and new_status is $new_status for post_id $post->ID");
-
-
-	//     // if ( $new_status == $old_status || $post->post_type != 'tix_attendee' ) {
-	//     // 	return;
-	//     // }
-
-	//     // if ( $old_status == $new_status && ($old_status == 'draft' || $old_status == 'publish') )
-	//     	// $this->decrement_question_values_used( $post->ID );
-
- //    	// if ( $old_status == 'new' || $old_status == 'trash' /*&& ($new_status == 'draft' || $new_status == 'publish') */ ) {
- //    	// 	$this->increment_question_values_used( $post->ID );
- //    	// 	// die("transition from new! post_id is $post->ID. vardump: " . var_dump($post));
- //    	// }else 
- //    	if( /*($old_status == 'draft' || $old_status == 'publish') &&*/ $new_status == 'trash' ){
- //    		$this->decrement_question_values_used( $post->ID );
-	// 		// die("transition to trash! post_id is $post->ID");
- //    	}
-
- //    	// die("some transition on post_id: " . $post->ID);
-
-	// }
 
 	function increment_question_values_used( $post_id ){
 
@@ -289,16 +239,6 @@ class CampTix_Plugin {
 		$this->change_attendee_question_values_used($post_id, 1);
     	
 	}
-
-
-	// function increment_question_values_used_twice( $post_id ){
-
-	//     // increments the question_values_used
-	// 	$this->change_attendee_question_values_used($post_id, 1);
-	// 	$this->change_attendee_question_values_used($post_id, 1);
-
-    	
-	// }
 
 	function decrement_question_values_used( $post_id ){
 
@@ -3682,7 +3622,7 @@ class CampTix_Plugin {
 		?>
 		<?php if ( $values ) : ?>
 			<?php foreach ( (array) $values as $question_value ) : ?>
-				<label><input <?php checked( in_array( $question_value, (array) $user_value ) ); ?> name="<?php echo esc_attr( $name ); ?>[<?php echo sanitize_title_with_dashes( $question_value ); ?>]" type="checkbox" value="<?php echo esc_attr( $question_value ); ?>" /> <?php echo esc_html( $question_value ); ?></label><br />
+				<label><input <?php checked( in_array( $question_value, (array) $user_value ) ); ?> name="<?php echo esc_attr( $name ); ?>[<?php echo sanitize_title_with_dashes( $question_value ); ?>]" type="checkbox" value="<?php echo esc_attr( $question_value ); ?>" /> <span><?php echo esc_html( $question_value ); ?></span></label><br />
 			<?php endforeach; ?>
 		<?php else : ?>
 			<label><input <?php checked( $user_value, 'Yes' ); ?> name="<?php echo esc_attr( $name ); ?>" type="checkbox" value="Yes" /> <?php _e( 'Yes', 'camptix' ); ?></label>
@@ -3706,7 +3646,7 @@ class CampTix_Plugin {
 		$values = get_post_meta( $question->ID, 'tix_values', true );
 		?>
 		<?php foreach ( (array) $values as $question_value ) : ?>
-			<label><input <?php checked( $question_value, $user_value ); ?> name="<?php echo esc_attr( $name ); ?>" type="radio" value="<?php echo esc_attr( $question_value ); ?>" /> <?php echo esc_html( $question_value ); ?></label><br />
+			<label><input <?php checked( $question_value, $user_value ); ?> name="<?php echo esc_attr( $name ); ?>" type="radio" value="<?php echo esc_attr( $question_value ); ?>" /> <span><?php echo esc_html( $question_value ); ?></span></label><br />
 		<?php endforeach; ?>
 		<?php
 	}
@@ -5190,13 +5130,13 @@ class CampTix_Plugin {
 										<td class="tix-right">
 											<?php do_action( "camptix_question_field_{$type}", $name, $value, $question ); ?>
 											<!-- i put your code in a <span> so i can hide it with js-->
-										<!-- <span> -->
+										<span>
 											<?php $values_used = get_post_meta( $question->ID, 'tix_values_used', true); ?>
 											<?php foreach ($values_used as $val){
 												var_dump($val); 
 											} 
 											?>
-										<!-- <span> -->
+										</span>
 										
 										
 										</td>
