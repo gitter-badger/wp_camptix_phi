@@ -6142,7 +6142,7 @@ class CampTix_Plugin {
 						// if checkbox, then there will be an array of answers
 						if ( is_array( $answer ) ) {
 							$answer = array_values($answer);
-							if (strpos($answer[$i],'.') === 0) { //check if "." is at beginning of checkbox value
+							if (strpos($answer[$i],'#') !== false) {) { //check if "#" is in the checkbox value
 
 							
 								// now find what the current answer index that $answer is inside the $question by finding $answer in $question_values and looking up the index
@@ -6152,9 +6152,13 @@ class CampTix_Plugin {
 										break; // once we find the answer inside question_values, we break out of forloop (with $answer_index as the current index)
 								}
 								
+
+
 								$pieces = explode("(", $answer[$i]);
 								$max_limit = floatval( explode(")", $pieces[1])[0] );
-						
+								if($max_limit < 1) // if we can't find a valid max_limit, then just ignore this question
+									continue;
+
 								// if question_values_used + 1 is greater than max_limits, then set an error_flag
 								if($question_values_used[$answer_index] + 1 > $max_limit) {
 									$this->error_flags['tickets_excess'] = true;
@@ -6162,11 +6166,11 @@ class CampTix_Plugin {
 								}
 
 
-							}// end if '.' is first char
+							}// end if '#' exists
 						}// end if checkbox
 						// else if radiobox, then there will be a single string answer
 						else {
-							if (strpos($answer,'.') === 0) { //check if "." is at beginning of checkbox value
+							if (strpos($answer,'#') !== false) {) { //check if "#" is in the radio button value
 
 							
 								// now find what the current answer index that $answer is inside the $question by finding $answer in $question_values and looking up the index
@@ -6178,7 +6182,9 @@ class CampTix_Plugin {
 								
 								$pieces = explode("(", $answer[$i]);
 								$max_limit = floatval( explode(")", $pieces[1])[0] );
-						
+								if($max_limit < 1) // if we can't find a valid max_limit, then just ignore this question
+									continue;
+
 								// if question_values_used + 1 is greater than max_limits, then set an error_flag
 								if($question_values_used[$answer_index] + 1 > $max_limit) {
 									$this->error_flags['tickets_excess'] = true;
