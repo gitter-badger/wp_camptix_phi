@@ -26,7 +26,7 @@
 
 
 	// this hides all the used workshops values
-	//$(".tix-attendee-form td > span").css("display" , "none");
+	$(".tix-attendee-form td > span").css("display" , "none");
 
 	var value = "";
 	var remaining = "";
@@ -36,27 +36,35 @@
 		$(".tix-attendee-form input[type='checkbox'], .tix-attendee-form input[type='radio']").each(function(){
 		var answer = $(this).attr("value");
 		value = answer;
-			if (answer.indexOf('Remaining:') > -1) {
-				var index = $(this).parent().index()
-				if (index > 0) {
-					index = index/2;
-				}
-				var all_used = $(this).parent().siblings("span").html().replace("<span>", "").replace("</span>", "").split(")");
-				for (var i = 0; i < all_used.length; i++) {
-					all_used[i] = all_used[i].replace("int(", "");
-					all_used[i] = parseInt(all_used[i]);
-				}
 
-				var all = answer.substring(answer.lastIndexOf(" ")+1 , answer.lastIndexOf(")"));
-				all = parseInt(all);
-				
-				var each_remaining = all - all_used[index];
+		if (answer[0] == ".") {
+			answer = answer.replace("." , "")
+			$(this).next().html(" " + answer);
+		};
 
-				answer = answer.substring(0 , answer.lastIndexOf(" ")+1);
-				answer = answer + each_remaining + ")";
-				$(this).attr("value" , answer);
-				$(this).next().html(" " + answer);
-			 if (each_remaining <= 0) {
+		if (answer[0] == "#") {
+
+			var index = $(this).parent().index()
+			if (index > 0) {
+				index = index/2;
+			}
+			var all_used = $(this).parent().siblings("span").html().replace("<span>", "").replace("</span>", "").split(")");
+			for (var i = 0; i < all_used.length; i++) {
+				all_used[i] = all_used[i].replace("int(", "");
+				all_used[i] = parseInt(all_used[i]);
+			}
+
+			var all = answer.substring(answer.lastIndexOf("(")+1 , answer.lastIndexOf(")"));
+			all = parseInt(all);
+			
+			var each_remaining = all - all_used[index];
+
+			answer = answer.substring(0 , answer.lastIndexOf("(")+1);
+			answer = answer.replace("#" , "");
+			answer = answer + "Remaining: " + each_remaining + ")";
+/*				$(this).attr("value" , answer);*/
+			$(this).next().html(" " + answer);
+			if (each_remaining <= 0) {
 					$(this).attr("disabled", true);
 				} else {
 					$(this).attr("disabled", false);
@@ -116,7 +124,6 @@
 			}
 		});
 
-
 		// if this was previously checked
 		if (radio.data('waschecked') === true) {
 			radio.attr("checked" , false)
@@ -128,7 +135,6 @@
 		// remove was checked from other radios
 		radio.parent().siblings().children('input[type="radio"]').data('waschecked', false);
 		check_update_remaining( $(this) );
-
 	});
 
 	function update_prices(e){
@@ -206,19 +212,22 @@
 	};
 
 	$(".tix-attendee-form input[type='checkbox']").change(function(){
-			
-		 checkbox_update_prices( $(this) );
-			checkbox_maximum_select( $(this) );
-			check_update_remaining( $(this) );
+		if ($(this).attr("value")[0] == ".") {
+			checkbox_update_prices( $(this) );
+		};
+		checkbox_maximum_select( $(this) );
+		check_update_remaining( $(this) );
 	});
 
-//this funciton checks and updates the remaing of each checkbox that has a remaining
+//this funciton checks and updates the remaining of each checkbox that has a remaining
 //it changes the value and label of all the same checkboxes with the remaining
 //remaining is defined here and is converted to integer inside the function to be used in disable_not_remaining()
 	function check_update_remaining(e){
-		var answer = e.attr("value");
-		value = answer;
-		if (answer.indexOf('Remaining:') > -1) {
+/*		var answer = e.attr("value");
+*/		
+		var answer = e.next().html();
+		value = e.attr("value");
+		if (value[0] == "#" || value.indexOf(".#") > -1) {
 			remaining = answer.substring(answer.lastIndexOf(" ")+1 , answer.lastIndexOf(")"));
 			answer = answer.substring(0 , answer.lastIndexOf(" ")+1);
 			remaining = parseInt(remaining);
@@ -233,12 +242,12 @@
 			var new_answer = answer + remaining + ")";
 			$(".tix-attendee-form").find("input[type='checkbox'], input[type='radio']").each(function(){
 				if ($(this).attr("value") == value) {
-					$(this).attr("value" , new_answer);
-					$(this).next().html(" " + new_answer);
+/*					$(this).attr("value" , new_answer);
+*/					$(this).next().html(" " + new_answer);
 				};
 			});
-		value = new_answer;
-	 disable_not_remaining(e);
+/*			value = new_answer;
+*/			disable_not_remaining(e);
 		};
 
  };
@@ -248,12 +257,15 @@
  		e.parents(".tix-attendee-form").siblings(".tix-attendee-form").each(function(){
 				$(this).find("input[type='checkbox'], input[type='radio']").each(function(){
 					if ($(this).attr("value") == value) {
-					 if (remaining <= 0) {
-							$(this).attr("disabled", true);
-						} else {
-							$(this).attr("disabled", false);
+						//disable only the unchecked checkboxes when the remaining becomes 0
+						if(!$(this).attr("checked")) {
+							if (remaining <= 0) {
+								$(this).attr("disabled", true);
+							} else {
+								$(this).attr("disabled", false);
+							}
 						}
-			 	}
+			 		}
 				});
  		});
  }
@@ -267,15 +279,17 @@
 			var limit = question[0].substring(question[0].lastIndexOf(" ")+1 , question[0].lastIndexOf(")"));
 			limit = parseInt( limit );
 			var number_of_checked = 0;
-		 e.parent().siblings().find("input[type='checkbox']:checked").each(function(){
-		 	number_of_checked = number_of_checked + 1;
-		 });
-	  if(number_of_checked >= limit) {
+
+			e.parent().siblings().find("input[type='checkbox']:checked").each(function(){
+				number_of_checked = number_of_checked + 1;
+			});
+
+			if(number_of_checked >= limit) {
 				if (e.attr("checked")) {
-		   e.attr("checked" , false);
+					e.attr("checked" , false);
 					check_update_remaining( $(this) );
 				};
-	  };
+			};
 		};
 	};
 
