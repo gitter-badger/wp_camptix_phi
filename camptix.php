@@ -4949,7 +4949,7 @@ class CampTix_Plugin {
 		if ( isset( $this->error_flags['no_tickets_selected'], $_GET['tix_action'] ) && 'checkout' == $_GET['tix_action'] )
 			return $this->form_start();
 
-		if ( isset( $this->error_flags['tickets_excess'], $_GET['action'] ) )
+		if ( isset( $this->error_flags['tickets_excess'], $_GET['tix_action'] ) )
 			if ( 'attendee_info' == $_GET['tix_action'] )
 				$this->notice( __( 'It looks like you have chosen more tickets than we have left! We have stripped the extra ones.', 'camptix' ) );
 			elseif ( 'checkout' == $_GET['tix_action'] )
@@ -6129,6 +6129,66 @@ class CampTix_Plugin {
 						$answer = ( is_array( $answer ) ) ? array_map( 'strip_tags', $answer ) : strip_tags( $answer );
 						$answers[ $question->ID ] = $answer;
 					}
+
+
+					/*
+					 * check that the question_values is not greater than max limit
+					 */
+
+					$question_values_used = get_post_meta( $question->ID, 'tix_values_used', true);
+					$question_values = get_post_meta( $question->ID, 'tix_values', true);
+					// go over every answer for this question
+					for ($i = 0; $i < count($answer); $i++) {
+						// if checkbox, then there will be an array of answers
+						if ( is_array( $answer ) ) {
+							$answer = array_values($answer);
+							if (strpos($answer[$i],'.') === 0) { //check if "." is at beginning of checkbox value
+
+							
+								// now find what the current answer index that $answer is inside the $question by finding $answer in $question_values and looking up the index
+								$answer_index = 0;
+								for (; $answer_index < count($question_values); $answer_index++){
+									if ($question_values[$answer_index] == $answer[$i])
+										break; // once we find the answer inside question_values, we break out of forloop (with $answer_index as the current index)
+								}
+								
+								$pieces = explode("(", $answer[$i]);
+								$max_limit = floatval( explode(")", $pieces[1])[0] );
+						
+								// if question_values_used + 1 is greater than max_limits, then set an error_flag
+								if($question_values_used[$answer_index] + 1 > $max_limit) {
+									$this->error_flags['tickets_excess'] = true;
+									return $this->form_attendee_info();
+								}
+
+
+							}// end if '.' is first char
+						}// end if checkbox
+						// else if radiobox, then there will be a single string answer
+						else {
+							if (strpos($answer,'.') === 0) { //check if "." is at beginning of checkbox value
+
+							
+								// now find what the current answer index that $answer is inside the $question by finding $answer in $question_values and looking up the index
+								$answer_index = 0;
+								for (; $answer_index < count($question_values); $answer_index++){
+									if ($question_values[$answer_index] == $answer[$i])
+										break; // once we find the answer inside question_values, we break out of forloop (with $answer_index as the current index)
+								}
+								
+								$pieces = explode("(", $answer[$i]);
+								$max_limit = floatval( explode(")", $pieces[1])[0] );
+						
+								// if question_values_used + 1 is greater than max_limits, then set an error_flag
+								if($question_values_used[$answer_index] + 1 > $max_limit) {
+									$this->error_flags['tickets_excess'] = true;
+									return $this->form_attendee_info();
+								}
+
+							}
+						}
+					};
+
 
 					if ( (bool) get_post_meta( $question->ID, 'tix_required', true ) && empty( $answers[ $question->ID ] ) ) {
 						$this->error_flags['required_fields'] = true;
