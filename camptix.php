@@ -6142,7 +6142,7 @@ class CampTix_Plugin {
 						// if checkbox, then there will be an array of answers
 						if ( is_array( $answer ) ) {
 							$answer = array_values($answer);
-							if (strpos($answer[$i],'#') !== false) {) { //check if "#" is in the checkbox value
+							if (strpos($answer[$i],'#') !== false) { //check if "#" is in the checkbox value
 
 							
 								// now find what the current answer index that $answer is inside the $question by finding $answer in $question_values and looking up the index
@@ -6170,7 +6170,7 @@ class CampTix_Plugin {
 						}// end if checkbox
 						// else if radiobox, then there will be a single string answer
 						else {
-							if (strpos($answer,'#') !== false) {) { //check if "#" is in the radio button value
+							if (strpos($answer,'#') !== false) { //check if "#" is in the radio button value
 
 							
 								// now find what the current answer index that $answer is inside the $question by finding $answer in $question_values and looking up the index
