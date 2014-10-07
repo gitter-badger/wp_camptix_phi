@@ -6094,7 +6094,7 @@ class CampTix_Plugin {
 			$this->error_flags['invalid_payment_method'] = true;
 		}
 
-		foreach( (array) $_POST['tix_attendee_info'] as $i => $attendee_info ) {
+		foreach( (array) $_POST['tix_attendee_info'] as $attendee_index => $attendee_info ) {
 			$attendee = new stdClass;
 
 			if ( ! isset( $attendee_info['ticket_id'] ) || ! array_key_exists( $attendee_info['ticket_id'], $this->tickets_selected ) ) {
@@ -6120,12 +6120,12 @@ class CampTix_Plugin {
 				$this->error_flags['invalid_email'] = true;
 
 			$answers = array();
-			if ( isset( $_POST['tix_attendee_questions'][ $i ] ) ) {
+			if ( isset( $_POST['tix_attendee_questions'][ $attendee_index ] ) ) {
 				$questions = $this->get_sorted_questions( $ticket->ID );
 
 				foreach ( $questions as $question ) {
-					if ( isset( $_POST['tix_attendee_questions'][ $i ][ $question->ID ] ) ) {
-						$answer = $_POST['tix_attendee_questions'][ $i ][ $question->ID ];
+					if ( isset( $_POST['tix_attendee_questions'][ $attendee_index ][ $question->ID ] ) ) {
+						$answer = $_POST['tix_attendee_questions'][ $attendee_index ][ $question->ID ];
 						$answer = ( is_array( $answer ) ) ? array_map( 'strip_tags', $answer ) : strip_tags( $answer );
 						$answers[ $question->ID ] = $answer;
 					}
@@ -6214,8 +6214,9 @@ class CampTix_Plugin {
 
 			$attendee = apply_filters( 'camptix_form_register_complete_attendee_object', $attendee, $attendee_info );
 
-			if ( isset( $_POST['tix_receipt_email'] ) && $_POST['tix_receipt_email'] == $i )
+			if ( isset( $_POST['tix_receipt_email'] ) && $_POST['tix_receipt_email'] == $attendee_index ){
 				$receipt_email = $attendee->email;
+			}
 
 			$attendees[] = $attendee;
 
