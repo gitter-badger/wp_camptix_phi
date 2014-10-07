@@ -4946,6 +4946,9 @@ class CampTix_Plugin {
 		// Clean things up before and after the shortcode.
 		$post->post_content = $this->shortcode_str;
 
+		if ( isset( $this->error_flags['workshops_excess'] ) )
+			$this->error( __( 'It looks like somebody purchased some limited items before you could finish your purchase. Please review your order and try again.', 'camptix' ) );
+
 		if ( isset( $this->error_flags['no_tickets_selected'], $_GET['tix_action'] ) && 'checkout' == $_GET['tix_action'] )
 			return $this->form_start();
 
@@ -6161,7 +6164,7 @@ class CampTix_Plugin {
 
 								// if question_values_used + 1 is greater than max_limits, then set an error_flag
 								if($question_values_used[$answer_index] + 1 > $max_limit) {
-									$this->error_flags['tickets_excess'] = true;
+									$this->error_flags['workshops_excess'] = true;
 									return $this->form_attendee_info();
 								}
 
@@ -6187,7 +6190,7 @@ class CampTix_Plugin {
 
 								// if question_values_used + 1 is greater than max_limits, then set an error_flag
 								if($question_values_used[$answer_index] + 1 > $max_limit) {
-									$this->error_flags['tickets_excess'] = true;
+									$this->error_flags['workshops_excess'] = true;
 									return $this->form_attendee_info();
 								}
 
