@@ -667,6 +667,7 @@ class CampTix_Plugin {
 		$columns['tix_email'] = __( 'E-mail', 'camptix' );
 		$columns['tix_ticket'] = __( 'Ticket', 'camptix' );
 		$columns['tix_coupon'] = __( 'Coupon', 'camptix' );
+		$columns['tix_attended'] = __( 'Attendance', 'camptix' );
 
 		if ( $this->options['reservations_enabled'] )
 			$columns['tix_reservation'] = __( 'Reservation', 'camptix' );
@@ -718,6 +719,10 @@ class CampTix_Plugin {
 			case 'tix_ticket_price':
 				$ticket_price = (float) get_post_meta( $post_id, 'tix_ticket_price', true );
 				echo $this->append_currency( $ticket_price );
+				break;
+			case 'tix_attended':
+				$attended = (bool) get_post_meta( $post_id, 'tix_attended', true);
+				echo $attended ? 'Attended' : 'Did not attend';
 				break;
 		}
 	}
