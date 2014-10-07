@@ -155,6 +155,8 @@ class CampTix_Plugin {
 		
 		add_action(  'transition_post_status',  array( $this, 'on_all_status_transitions' ), 1, 3 );
 
+		add_action( 'quick_edit_custom_box', array( $this, 'display_custom_quickedit_attendance'), 10, 2 );
+
 		// Other things required during init.
 		$this->custom_columns();
 		$this->register_post_types();
@@ -163,6 +165,27 @@ class CampTix_Plugin {
 		do_action( 'camptix_init' );
 	}
 
+
+
+	/*
+	 * Displays quickedit checkbox for attendance. Based off of code taken from Wordpress Codex API examples
+	 */
+	function display_custom_quickedit_attendance( $column_name, $post_type ) {
+
+	    echo "
+	    <fieldset class='inline-edit-col-right inline-edit-attendance'>
+	      <div class='inline-edit-col column-$column_name'>
+	        <label class='inline-edit-group'>";
+	    
+	    
+	        switch ( $column_name ) {
+	        case 'tix_attended':
+	            echo '<span class="title">Attendance</span><input name="tix_attended" type="checkbox" />';
+	            break;
+	        }
+	    echo '</label></div></fieldset>';
+
+	}
 
 	// function that takes care of incrementing question_values for attendees
 	// NOTE: this function is called twice because the untrashed_post hook is triggered twice
