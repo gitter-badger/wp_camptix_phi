@@ -156,6 +156,8 @@ class CampTix_Plugin {
 		add_action(  'transition_post_status',  array( $this, 'on_all_status_transitions' ), 1, 3 );
 
 		add_action( 'quick_edit_custom_box', array( $this, 'display_custom_quickedit_attendance'), 10, 2 );
+		add_action( 'wp_ajax_save_bulk_edit_attendance', array( $this, 'save_bulk_edit_attendance_callback') );
+		add_action( 'bulk_edit_custom_box', array( $this, 'display_custom_quickedit_attendance'), 10, 2 );	
 
 		// Other things required during init.
 		$this->custom_columns();
@@ -165,6 +167,22 @@ class CampTix_Plugin {
 		do_action( 'camptix_init' );
 	}
 
+
+	function save_bulk_edit_attendance_callback() {
+		
+		// get our variables
+		$post_ids           = ( ! empty( $_POST[ 'post_ids' ] ) ) ? $_POST[ 'post_ids' ] : array();
+		$attendances  = ( ! empty( $_POST[ 'tix_attended' ] ) ) ? $_POST[ 'tix_attended' ] : null;
+
+		// if everything is in order
+		if ( ! empty( $post_ids ) && is_array( $post_ids ) ) {
+			foreach( $post_ids as $post_id ) {
+				update_post_meta( $post_id, 'tix_attended', $attendances );
+			}
+		}
+
+		die();
+	}
 
 
 	/*
