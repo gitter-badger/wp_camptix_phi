@@ -39,6 +39,12 @@
 		};
 	})
 
+	$(".tix-attendee-form input[type='checkbox'], .tix-attendee-form input[type='radio']").each(function(){
+		if ( $(this).is(":checked") ){
+			check_update_remaining( $(this) );
+		}
+	})
+
 
 	function	simultaneous_workshop_error(error) {
 		var error_counter = 0;
@@ -46,12 +52,13 @@
 			if ( $(this).attr("disabled") ) {
 				if ( $(this).is(":checked") ){
 					error_counter++;
+					$(this).attr("checked" , false);
+					check_update_remaining($(this));
 					var choice = $(this).next().html()
 					var question = $(this).parents(".tix-right").siblings(".tix-left").html();
 					var ticket_name = $(this).parents(".tix-attendee-form").find("th").html();
 					var ticket_number = ticket_name.substr(0 , ticket_name.indexOf("."));
 					error.append("<p>" + error_counter + ". Ticket No. " + ticket_number + " (" + choice + ") in (" + question + ")" + ".</a>")
-					$(this).attr("checked" , false);
 				};
 			};
 		})
@@ -95,9 +102,6 @@
 				} else {
 					$(this).attr("disabled", false);
 				}
-			}
-			if ( $(this).is(":checked") ){
-				check_update_remaining( $(this) );
 			}
 		})
 	}

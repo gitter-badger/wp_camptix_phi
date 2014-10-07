@@ -23,8 +23,7 @@ class CampTix_Track_Attendance extends CampTix_Addon {
 	 */
 	public function render_attendance_checkbox( $attendee ) {
 		?>
-
-		<p>
+		<p class="attendance_addon">
 			<input id="tix_attended_<?php esc_attr( $attendee->ID ); ?>" name="tix_attended" type="checkbox" <?php checked( get_post_meta( $attendee->ID, 'tix_attended', true ) ); ?> />
 			<label for="tix_attended_<?php esc_attr( $attendee->ID ); ?>"><?php _e( 'Attended the event', 'camptix' ); ?></label>
 		</p>

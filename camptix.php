@@ -572,6 +572,7 @@ class CampTix_Plugin {
 
 		wp_register_style( 'camptix', plugins_url( 'camptix.css', __FILE__ ), array(), $this->css_version );
 		wp_register_script( 'camptix', plugins_url( 'camptix.js', __FILE__ ), array( 'jquery' ), $this->js_version );
+		wp_register_script( 'camptix', plugins_url( 'attendance.js', __FILE__ ), array( 'jquery' ), $this->js_version );
 
 		wp_localize_script( 'camptix', 'camptix_l10n', array(
 			'enterEmail' => __( 'Please enter the e-mail addresses in the forms above.', 'camptix' ),
@@ -603,6 +604,7 @@ class CampTix_Plugin {
 
 				wp_enqueue_style( 'camptix-admin', plugins_url( '/admin.css', __FILE__ ), array(), $this->css_version );
 				wp_enqueue_script( 'camptix-admin', plugins_url( '/admin.js', __FILE__ ), array( 'jquery', 'jquery-ui-datepicker', 'backbone' ), $this->js_version );
+				wp_enqueue_script( 'camptix', plugins_url( '/attendance.js', __FILE__ ), array( 'jquery' ), $this->js_version );
 				wp_dequeue_script( 'autosave' );
 			}
 		}
@@ -763,7 +765,12 @@ class CampTix_Plugin {
 				break;
 			case 'tix_attended':
 				$attended = (bool) get_post_meta( $post_id, 'tix_attended', true);
-				echo $attended ? 'Attended' : 'Did not attend';
+				echo $attended ? '<input name="tix_attended" type="checkbox" checked/>' : '<input name="tix_attended" type="checkbox"/>';
+				echo "<input type=hidden name=tix_attendee_id value=$post_id />";
+				
+				$fool = plugins_url( 'camptix/ajax-attendance.php' , dirname(__FILE__));
+        		echo '<span style="display:none" id="pluginsdir">' . $fool . '</span>';
+
 				break;
 		}
 	}
