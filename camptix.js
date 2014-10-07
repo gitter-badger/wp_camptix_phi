@@ -31,45 +31,74 @@
 	var value = "";
 	var remaining = "";
 	update_remaining()
-		
+
+	$("#tix-errors").children().each( function(){
+		if ( $(this).html().indexOf('try again') > -1 ) {
+			$(this).html("<p>" + $(this).html() + "</p>");
+			simultaneous_workshop_error( $(this) );
+		};
+	})
+
+
+	function	simultaneous_workshop_error(error) {
+		var error_counter = 0;
+		$(".tix-attendee-form input[type='checkbox'], .tix-attendee-form input[type='radio']").each(function(){
+			if ( $(this).attr("disabled") ) {
+				if ( $(this).is(":checked") ){
+					error_counter++;
+					var choice = $(this).next().html()
+					var question = $(this).parents(".tix-right").siblings(".tix-left").html();
+					var ticket_name = $(this).parents(".tix-attendee-form").find("th").html();
+					var ticket_number = ticket_name.substr(0 , ticket_name.indexOf("."));
+					error.append("<p>" + error_counter + ". Ticket No. " + ticket_number + " (" + choice + ") in (" + question + ")" + ".</a>")
+					$(this).attr("checked" , false);
+				};
+			};
+		})
+	}
+
+
 	function	update_remaining() {
 		$(".tix-attendee-form input[type='checkbox'], .tix-attendee-form input[type='radio']").each(function(){
-		var answer = $(this).attr("value");
-		value = answer;
+			var answer = $(this).attr("value");
+			value = answer;
 
-		if (answer[0] == ".") {
-			answer = answer.replace("." , "")
-			$(this).next().html(" " + answer);
-		};
+			if (answer[0] == ".") {
+				answer = answer.replace("." , "")
+				$(this).next().html(" " + answer);
+			};
 
-		if (answer[0] == "#") {
+			if (answer[0] == "#") {
 
-			var index = $(this).parent().index()
-			if (index > 0) {
-				index = index/2;
-			}
-			var all_used = $(this).parent().siblings("span").html().replace("<span>", "").replace("</span>", "").split(")");
-			for (var i = 0; i < all_used.length; i++) {
-				all_used[i] = all_used[i].replace("int(", "");
-				all_used[i] = parseInt(all_used[i]);
-			}
+				var index = $(this).parent().index()
+				if (index > 0) {
+					index = index/2;
+				}
+				var all_used = $(this).parent().siblings("span").html().replace("<span>", "").replace("</span>", "").split(")");
+				for (var i = 0; i < all_used.length; i++) {
+					all_used[i] = all_used[i].replace("int(", "");
+					all_used[i] = parseInt(all_used[i]);
+				}
 
-			var all = answer.substring(answer.lastIndexOf("(")+1 , answer.lastIndexOf(")"));
-			all = parseInt(all);
-			
-			var each_remaining = all - all_used[index];
+				var all = answer.substring(answer.lastIndexOf("(")+1 , answer.lastIndexOf(")"));
+				all = parseInt(all);
+				
+				var each_remaining = all - all_used[index];
 
-			answer = answer.substring(0 , answer.lastIndexOf("(")+1);
-			answer = answer.replace("#" , "");
-			answer = answer + "Remaining: " + each_remaining + ")";
-/*				$(this).attr("value" , answer);*/
-			$(this).next().html(" " + answer);
-			if (each_remaining <= 0) {
+				answer = answer.substring(0 , answer.lastIndexOf("(")+1);
+				answer = answer.replace("#" , "");
+				answer = answer + "Remaining: " + each_remaining + ")";
+	/*				$(this).attr("value" , answer);*/
+				$(this).next().html(" " + answer);
+				if (each_remaining <= 0) {
 					$(this).attr("disabled", true);
 				} else {
 					$(this).attr("disabled", false);
 				}
-			};
+			}
+			if ( $(this).is(":checked") ){
+				check_update_remaining( $(this) );
+			}
 		})
 	}
 
